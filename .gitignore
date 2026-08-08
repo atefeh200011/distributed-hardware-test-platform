@@ -1,0 +1,9 @@
+# CMake build directories
+build/
+cmake-build-*/
+
+# Local editor settings
+.vscode/
+
+# Generated logs
+*.log : 
