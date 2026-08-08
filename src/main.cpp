@@ -9,6 +9,13 @@ int main()
     std::string command;
     std::getline(std::cin, command);
 
-    std::cout << "Received command: " << command << '\n';
+    if (command == "status")
+    {
+        std::cout << "Platform status: ready\n";
+    }
+    else
+    {
+        std::cout << "Unknown command: " << command << '\n';
+    }
     return 0;
 }
