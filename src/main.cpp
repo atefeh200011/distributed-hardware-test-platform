@@ -17,6 +17,13 @@ int main()
             std::cout << "Shutting down the hardware test platform project.\n";
             break;
         }
+        else if (command == "help")
+        {
+            std::cout << "Available commands:\n";
+            std::cout << "  help    Show available commands\n";
+            std::cout << "  status  Show platform status\n";
+            std::cout << "  exit    Exit the application\n";
+        }
         else if (command == "status")
         {
             std::cout << "Platform status: ready\n";
@@ -26,6 +33,6 @@ int main()
             std::cout << "Unknown command: " << command << '\n';
         }
     }
-
+ 
     return 0;
 }
