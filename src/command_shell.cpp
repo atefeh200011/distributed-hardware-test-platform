@@ -2,12 +2,12 @@
 
 #include "command_shell.h"
 
-void print_help()
+void print_help(std::ostream& output)
 {
-    std::cout << "Available commands:\n";
-    std::cout << "  help    Show available commands\n";
-    std::cout << "  status  Show platform status\n";
-    std::cout << "  exit    Exit the application\n";
+    output << "Available commands:\n";
+    output << "  help    Show available commands\n";
+    output << "  status  Show platform status\n";
+    output << "  exit    Exit the application\n";
 }
 
 bool handle_command(std::string command)
@@ -19,7 +19,7 @@ bool handle_command(std::string command)
     }
     else if (command == "help")
     {
-        print_help();
+        print_help(std::cout);
         return true;
     }
     else if (command == "status")
