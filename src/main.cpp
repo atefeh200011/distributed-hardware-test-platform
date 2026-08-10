@@ -1,6 +1,14 @@
 #include <iostream>
 #include <string>
 
+void print_help()
+{
+    std::cout << "Available commands:\n";
+    std::cout << "  help    Show available commands\n";
+    std::cout << "  status  Show platform status\n";
+    std::cout << "  exit    Exit the application\n";
+}
+
 int main()
 {
     std::cout << "Hardware Test Platform version 0.1.0\n";
@@ -19,10 +27,7 @@ int main()
         }
         else if (command == "help")
         {
-            std::cout << "Available commands:\n";
-            std::cout << "  help    Show available commands\n";
-            std::cout << "  status  Show platform status\n";
-            std::cout << "  exit    Exit the application\n";
+            print_help();
         }
         else if (command == "status")
         {
