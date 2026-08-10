@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 
+#include "command_shell.h"
+
 void print_help()
 {
     std::cout << "Available commands:\n";
