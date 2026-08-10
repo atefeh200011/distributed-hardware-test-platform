@@ -8,3 +8,20 @@ add_executable(hwtest
 )
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
+
+enable_testing()
+
+add_executable(command_shell_tests
+    tests/command_shell_tests.cpp
+    src/command_shell.cpp
+)
+
+target_compile_features(command_shell_tests PRIVATE cxx_std_20)
+
+target_include_directories(command_shell_tests PRIVATE src)
+
+add_test(
+    NAME command_shell_status
+    COMMAND command_shell_tests
+)
+
