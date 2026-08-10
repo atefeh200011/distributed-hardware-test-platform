@@ -1,4 +1,4 @@
-#include <iostream>
+
 
 #include "command_shell.h"
 
@@ -10,26 +10,27 @@ void print_help(std::ostream& output)
     output << "  exit    Exit the application\n";
 }
 
-bool handle_command(std::string command)
+bool handle_command(std::string command, std::ostream& output)
 {
     if (command == "exit")
     {
-        std::cout << "Shutting down the hardware test platform project.\n";
+        output << "Shutting down the hardware test platform project.\n";
         return false;
     }
     else if (command == "help")
     {
-        print_help(std::cout);
+        print_help(output);
         return true;
     }
     else if (command == "status")
     {
-        std::cout << "Platform status: ready\n";
+        output << "Platform status: ready\n";
         return true;
     }
     else
     {
-        std::cout << "Unknown command: " << command << '\n';
+        output << "Unknown command: " << command << '\n';
         return true;
     }
 }
+

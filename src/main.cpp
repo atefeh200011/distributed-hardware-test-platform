@@ -14,7 +14,7 @@ int main()
         std::cout << "hwtest> ";
         std::getline(std::cin, command);
 
-        bool should_continue = handle_command(command);
+        bool should_continue = handle_command(command, std::cout);
 
         if (should_continue == false)
         {
@@ -24,3 +24,4 @@ int main()
 
     return 0;
 }
+

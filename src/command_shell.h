@@ -4,4 +4,5 @@
 #include <string>
 
 void print_help(std::ostream& output);
-bool handle_command(std::string command);
+bool handle_command(std::string command, std::ostream& output);
+
