@@ -24,6 +24,24 @@ int main()
         return 1;
     }
 
-    std::cout << "PASS: status command\n";
+    std::ostringstream exit_output;
+
+    bool exit_should_continue = handle_command("exit", exit_output);
+
+    if (exit_should_continue == true)
+    {
+        std::cerr << "FAIL: exit should stop the shell\n";
+        return 1;
+    }
+
+    const std::string expected_exit_output =
+        "Shutting down the hardware test platform project.\n";
+
+    if (exit_output.str() != expected_exit_output)
+    {
+        std::cerr << "FAIL: exit produced unexpected output\n";
+        return 1;
+    }
+    std::cout << "PASS: command tests\n";
     return 0;
 }

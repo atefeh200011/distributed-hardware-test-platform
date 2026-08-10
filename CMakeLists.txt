@@ -21,7 +21,7 @@ target_compile_features(command_shell_tests PRIVATE cxx_std_20)
 target_include_directories(command_shell_tests PRIVATE src)
 
 add_test(
-    NAME command_shell_status
+    NAME command_shell_commands
     COMMAND command_shell_tests
 )
 
