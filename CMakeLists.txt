@@ -24,4 +24,15 @@ add_test(
     NAME command_shell_commands
     COMMAND command_shell_tests
 )
+add_executable(simulated_relay_tests
+    tests/simulated_relay_tests.cpp
+    src/simulated_relay.cpp
+)
+target_compile_features(simulated_relay_tests PRIVATE cxx_std_20)
 
+target_include_directories(simulated_relay_tests PRIVATE src)
+
+add_test(
+    NAME simulated_relay
+    COMMAND simulated_relay_tests
+)
