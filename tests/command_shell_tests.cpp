@@ -51,6 +51,31 @@ int main()
         return 1;
     }
 
+    std::ostringstream relay_off_output;
+
+    bool relay_off_should_continue =
+        handle_command("relay off", relay, relay_off_output);
+
+    if (relay_off_should_continue == false)
+    {
+        std::cerr << "FAIL: relay off should keep the shell running\n";
+        return 1;
+    }
+
+    if (relay.is_on() == true)
+    {
+        std::cerr << "FAIL: relay off should switch the relay off\n";
+        return 1;
+    }
+
+    const std::string expected_relay_off_output = "Relay state: off\n";
+
+    if (relay_off_output.str() != expected_relay_off_output)
+    {
+        std::cerr << "FAIL: relay off produced unexpected output\n";
+        return 1;
+    }
+
     std::ostringstream exit_output;
 
     bool exit_should_continue = handle_command("exit", relay, exit_output);

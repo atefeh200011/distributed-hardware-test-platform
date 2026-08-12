@@ -31,6 +31,12 @@ bool handle_command(
         output << "Relay state: on\n";
         return true;
     }
+    else if (command == "relay off")
+    {
+        relay.turn_off();
+        output << "Relay state: off\n";
+        return true;
+    }
     else if (command == "status")
     {
         output << "Platform status: ready\n";
