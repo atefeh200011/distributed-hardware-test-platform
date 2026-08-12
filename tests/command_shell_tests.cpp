@@ -3,12 +3,14 @@
 #include <string>
 
 #include "command_shell.h"
+#include "simulated_relay.h"
 
 int main()
 {
     std::ostringstream output;
+    SimulatedRelay relay;
 
-    bool should_continue = handle_command("status", output);
+    bool should_continue = handle_command("status", relay, output);
 
     if (should_continue == false)
     {
@@ -26,7 +28,7 @@ int main()
 
     std::ostringstream exit_output;
 
-    bool exit_should_continue = handle_command("exit", exit_output);
+    bool exit_should_continue = handle_command("exit", relay, exit_output);
 
     if (exit_should_continue == true)
     {
@@ -42,6 +44,7 @@ int main()
         std::cerr << "FAIL: exit produced unexpected output\n";
         return 1;
     }
+    
     std::cout << "PASS: command tests\n";
     return 0;
 }

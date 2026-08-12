@@ -5,6 +5,7 @@ project(hardware_test_platform VERSION 0.1.0 LANGUAGES CXX)
 add_executable(hwtest
     src/command_shell.cpp
     src/main.cpp
+    src/simulated_relay.cpp
 )
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
@@ -14,6 +15,7 @@ enable_testing()
 add_executable(command_shell_tests
     tests/command_shell_tests.cpp
     src/command_shell.cpp
+    src/simulated_relay.cpp
 )
 
 target_compile_features(command_shell_tests PRIVATE cxx_std_20)

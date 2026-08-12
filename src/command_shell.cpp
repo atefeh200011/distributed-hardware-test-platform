@@ -10,7 +10,10 @@ void print_help(std::ostream& output)
     output << "  exit    Exit the application\n";
 }
 
-bool handle_command(std::string command, std::ostream& output)
+bool handle_command(
+    std::string command,
+    IRelay& relay,
+    std::ostream& output)
 {
     if (command == "exit")
     {
@@ -33,4 +36,5 @@ bool handle_command(std::string command, std::ostream& output)
         return true;
     }
 }
+
 
