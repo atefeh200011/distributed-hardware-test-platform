@@ -50,7 +50,22 @@ int main()
         std::cerr << "FAIL: relay on produced unexpected output\n";
         return 1;
     }
+    std::ostringstream relay_status_on_output;
 
+    bool relay_status_on_should_continue =
+        handle_command("relay status", relay, relay_status_on_output);
+
+    if (relay_status_on_should_continue == false)
+    {
+        std::cerr << "FAIL: relay status should keep the shell running\n";
+        return 1;
+    }
+
+    if (relay_status_on_output.str() != "Relay state: on\n")
+    {
+        std::cerr << "FAIL: relay status should report on\n";
+        return 1;
+    }
     std::ostringstream relay_off_output;
 
     bool relay_off_should_continue =
@@ -67,7 +82,22 @@ int main()
         std::cerr << "FAIL: relay off should switch the relay off\n";
         return 1;
     }
+    std::ostringstream relay_status_off_output;
 
+    bool relay_status_off_should_continue =
+        handle_command("relay status", relay, relay_status_off_output);
+
+    if (relay_status_off_should_continue == false)
+    {
+        std::cerr << "FAIL: relay status should keep the shell running\n";
+        return 1;
+    }
+
+    if (relay_status_off_output.str() != "Relay state: off\n")
+    {
+        std::cerr << "FAIL: relay status should report off\n";
+        return 1;
+    }
     const std::string expected_relay_off_output = "Relay state: off\n";
 
     if (relay_off_output.str() != expected_relay_off_output)
