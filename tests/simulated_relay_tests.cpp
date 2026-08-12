@@ -4,7 +4,8 @@
 
 int main()
 {
-    SimulatedRelay relay;
+    SimulatedRelay simulated_relay;
+    IRelay& relay = simulated_relay;
 
     if (relay.is_on() == true)
     {
@@ -19,7 +20,7 @@ int main()
         std::cerr << "FAIL: turn_on should switch the relay on\n";
         return 1;
     }
-    
+
     relay.turn_on();
 
     if (relay.is_on() == false)
