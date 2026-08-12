@@ -26,6 +26,31 @@ int main()
         return 1;
     }
 
+    std::ostringstream relay_on_output;
+
+    bool relay_on_should_continue =
+        handle_command("relay on", relay, relay_on_output);
+
+    if (relay_on_should_continue == false)
+    {
+        std::cerr << "FAIL: relay on should keep the shell running\n";
+        return 1;
+    }
+
+    if (relay.is_on() == false)
+    {
+        std::cerr << "FAIL: relay on should switch the relay on\n";
+        return 1;
+    }
+
+    const std::string expected_relay_on_output = "Relay state: on\n";
+
+    if (relay_on_output.str() != expected_relay_on_output)
+    {
+        std::cerr << "FAIL: relay on produced unexpected output\n";
+        return 1;
+    }
+
     std::ostringstream exit_output;
 
     bool exit_should_continue = handle_command("exit", relay, exit_output);
@@ -44,7 +69,7 @@ int main()
         std::cerr << "FAIL: exit produced unexpected output\n";
         return 1;
     }
-    
+
     std::cout << "PASS: command tests\n";
     return 0;
 }
