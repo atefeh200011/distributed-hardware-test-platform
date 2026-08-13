@@ -1,11 +1,13 @@
 #include "test_executor.h"
 
-bool execute_procedure(
+TestResult execute_procedure(
     const TestProcedure& procedure,
     IRelay& relay,
     std::ostream& output)
 {
     output << "Running procedure: " << procedure.name << '\n';
+
+    std::size_t completed_steps = 0;
 
     for (const TestStep& step : procedure.steps)
     {
@@ -24,7 +26,13 @@ bool execute_procedure(
             if (relay.is_on() == false)
             {
                 output << "Result: FAIL\n";
-                return false;
+
+                return TestResult{
+                    false,
+                    completed_steps,
+                    step.name,
+                    "Expected relay to be on"
+                };
             }
         }
         else if (step.action == TestAction::expect_relay_off)
@@ -32,11 +40,25 @@ bool execute_procedure(
             if (relay.is_on() == true)
             {
                 output << "Result: FAIL\n";
-                return false;
+
+                return TestResult{
+                    false,
+                    completed_steps,
+                    step.name,
+                    "Expected relay to be off"
+                };
             }
         }
+
+        ++completed_steps;
     }
 
     output << "Result: PASS\n";
-    return true;
+
+    return TestResult{
+        true,
+        completed_steps,
+        std::nullopt,
+        "All steps passed"
+    };
 }
