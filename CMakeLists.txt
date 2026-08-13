@@ -10,6 +10,12 @@ add_executable(hwtest
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
 
+target_compile_options(hwtest PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
 enable_testing()
 
 add_executable(command_shell_tests
@@ -26,21 +32,36 @@ add_test(
     NAME command_shell_commands
     COMMAND command_shell_tests
 )
+
 add_executable(simulated_relay_tests
     tests/simulated_relay_tests.cpp
     src/simulated_relay.cpp
 )
-target_compile_features(simulated_relay_tests PRIVATE cxx_std_20)
 
-target_compile_options(hwtest PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
+target_compile_features(simulated_relay_tests PRIVATE cxx_std_20)
 
 target_include_directories(simulated_relay_tests PRIVATE src)
 
 add_test(
     NAME simulated_relay
     COMMAND simulated_relay_tests
+)
+
+add_executable(test_procedure_tests
+    tests/test_procedure_tests.cpp
+)
+
+target_compile_features(test_procedure_tests PRIVATE cxx_std_20)
+
+target_compile_options(test_procedure_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(test_procedure_tests PRIVATE src)
+
+add_test(
+    NAME test_procedure_model
+    COMMAND test_procedure_tests
 )
