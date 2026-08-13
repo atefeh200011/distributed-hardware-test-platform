@@ -3,6 +3,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <atomic>
 
 #include "simulated_relay.h"
 #include "test_executor.h"
@@ -351,6 +352,77 @@ int main()
     if (timeout_output.str() != expected_timeout_output)
     {
         std::cerr << "FAIL: timeout output is incorrect\n";
+        return 1;
+    }
+
+    TestProcedure cancellation_procedure{
+        "Cancellation test",
+        {
+            {"Switch relay on", TestAction::relay_on},
+            {"Switch relay off", TestAction::relay_off}
+        }
+    };
+
+    SimulatedRelay cancellation_relay;
+    std::ostringstream cancellation_output;
+    std::atomic_bool cancellation_requested{true};
+
+    const TestResult cancellation_result =
+        execute_procedure(
+            cancellation_procedure,
+            cancellation_relay,
+            cancellation_output,
+            &cancellation_requested);
+
+    if (cancellation_result.cancelled == false)
+    {
+        std::cerr
+            << "FAIL: cancellation should be reported\n";
+        return 1;
+    }
+
+    if (cancellation_result.passed)
+    {
+        std::cerr
+            << "FAIL: cancelled procedure should not pass\n";
+        return 1;
+    }
+
+    if (cancellation_result.completed_steps != 0)
+    {
+        std::cerr
+            << "FAIL: cancelled procedure should complete no steps\n";
+        return 1;
+    }
+
+    if (cancellation_result.failed_step.has_value())
+    {
+        std::cerr
+            << "FAIL: cancellation before execution has no failed step\n";
+        return 1;
+    }
+
+    if (cancellation_result.message != "Procedure cancelled")
+    {
+        std::cerr << "FAIL: cancellation message is incorrect\n";
+        return 1;
+    }
+
+    if (cancellation_relay.is_on())
+    {
+        std::cerr
+            << "FAIL: cancelled procedure should not modify relay\n";
+        return 1;
+    }
+
+    const std::string expected_cancellation_output =
+        "Running procedure: Cancellation test\n"
+        "Result: CANCELLED\n";
+
+    if (cancellation_output.str() !=
+        expected_cancellation_output)
+    {
+        std::cerr << "FAIL: cancellation output is incorrect\n";
         return 1;
     }
 
