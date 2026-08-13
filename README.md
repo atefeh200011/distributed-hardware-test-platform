@@ -5,8 +5,8 @@ communication, and automated test execution.
 
 ## Project status
 
-Milestone 2 complete: hardware abstraction, deterministic simulated relay
-driver, CLI-based relay control, and automated state-transition tests.
+Milestone 3 complete: JSON-defined hardware test procedures, schema validation,
+in-memory execution, and CLI-based procedure loading.
 
 ## Planned capabilities
 
@@ -28,6 +28,7 @@ communication, and automated testing.
 - CMake 3.20 or newer
 - Ninja
 - Git
+- nlohmann/json 3.11 or newer
 
 ## Build
 
@@ -60,6 +61,7 @@ Available commands:
 | `relay on` | Switch the simulated relay on |
 | `relay off` | Switch the simulated relay off |
 | `relay status` | Show the simulated relay state |
+| `run <file>` | Load and execute a JSON test procedure |
 | `exit` | Exit the application |
 
 ## Test
@@ -68,6 +70,38 @@ Run all automated tests:
 
 ```bash
 ctest --test-dir build --output-on-failure
+```
+
+## JSON test procedures
+
+Test procedures define an ordered sequence of deterministic hardware actions and
+expectations. Run the included relay smoke test with:
+
+```text
+run procedures/relay_smoke_test.json
+```
+
+Supported actions:
+
+| Action | Behavior |
+| --- | --- |
+| `relay_on` | Switch the relay on |
+| `relay_off` | Switch the relay off |
+| `expect_relay_on` | Fail if the relay is off |
+| `expect_relay_off` | Fail if the relay is on |
+
+Example:
+
+```json
+{
+    "name": "Relay smoke test",
+    "steps": [
+        {"name": "Switch relay on", "action": "relay_on"},
+        {"name": "Verify relay on", "action": "expect_relay_on"},
+        {"name": "Switch relay off", "action": "relay_off"},
+        {"name": "Verify relay off", "action": "expect_relay_off"}
+    ]
+}
 ```
 
 ## Architecture
@@ -83,18 +117,27 @@ the command-processing logic.
 
 ```text
 .
+├── procedures/
+│   └── relay_smoke_test.json
 ├── src/
+│   ├── command_shell.cpp
+│   ├── command_shell.h
+│   ├── main.cpp
 │   ├── relay.h
 │   ├── simulated_relay.cpp
 │   ├── simulated_relay.h
-│   ├── command_shell.cpp
-│   ├── command_shell.h
-│   └── main.cpp
+│   ├── test_executor.cpp
+│   ├── test_executor.h
+│   ├── test_procedure.h
+│   ├── test_procedure_json.cpp
+│   └── test_procedure_json.h
 ├── tests/
 │   ├── command_shell_tests.cpp
-│   └── simulated_relay_tests.cpp
+│   ├── simulated_relay_tests.cpp
+│   ├── test_executor_tests.cpp
+│   ├── test_procedure_json_tests.cpp
+│   └── test_procedure_tests.cpp
 ├── CMakeLists.txt
 ├── README.md
 └── .gitignore
 ```
-
