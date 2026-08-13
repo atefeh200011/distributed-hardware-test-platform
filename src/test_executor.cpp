@@ -1,5 +1,6 @@
 #include "test_executor.h"
 
+#include <chrono>
 #include <string>
 
 namespace
@@ -73,7 +74,32 @@ TestResult execute_procedure(
         {
             failure_message.clear();
 
-            if (execute_step(step, relay, failure_message))
+            const auto start_time =
+                std::chrono::steady_clock::now();
+
+            const bool attempt_passed =
+                execute_step(step, relay, failure_message);
+
+            const auto end_time =
+                std::chrono::steady_clock::now();
+
+            const auto elapsed_time =
+                std::chrono::duration_cast<
+                    std::chrono::milliseconds>(
+                    end_time - start_time);
+
+            const bool timed_out =
+                elapsed_time >
+                std::chrono::milliseconds(step.timeout_ms);
+
+            if (timed_out)
+            {
+                failure_message =
+                    "Step exceeded timeout of " +
+                    std::to_string(step.timeout_ms) +
+                    " ms";
+            }
+            else if (attempt_passed)
             {
                 step_passed = true;
                 break;

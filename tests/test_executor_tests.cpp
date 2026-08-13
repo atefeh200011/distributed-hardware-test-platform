@@ -1,6 +1,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <chrono>
+#include <thread>
 
 #include "simulated_relay.h"
 #include "test_executor.h"
@@ -32,6 +34,31 @@ public:
 private:
     bool is_on_{true};
     mutable int remaining_failed_reads_{1};
+};
+
+class SlowRelay : public IRelay
+{
+public:
+    void turn_on() override
+    {
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(20));
+
+        is_on_ = true;
+    }
+
+    void turn_off() override
+    {
+        is_on_ = false;
+    }
+
+    bool is_on() const override
+    {
+        return is_on_;
+    }
+
+private:
+    bool is_on_{false};
 };
 
 int main()
@@ -256,6 +283,74 @@ int main()
                 << expected_retry_success_output;
         std::cerr << "Actual:\n"
                 << retry_success_output.str();
+        return 1;
+    }
+    
+    TestProcedure timeout_procedure{
+        "Timeout test",
+        {
+            {
+                "Slow relay activation",
+                TestAction::relay_on,
+                0,
+                1
+            }
+        }
+    };
+
+    SlowRelay slow_relay;
+    std::ostringstream timeout_output;
+
+    const TestResult timeout_result =
+        execute_procedure(
+            timeout_procedure,
+            slow_relay,
+            timeout_output);
+
+    if (timeout_result.passed)
+    {
+        std::cerr << "FAIL: slow step should time out\n";
+        return 1;
+    }
+
+    if (timeout_result.completed_steps != 0)
+    {
+        std::cerr
+            << "FAIL: timed-out step should not be completed\n";
+        return 1;
+    }
+
+    if (timeout_result.failed_step.has_value() == false)
+    {
+        std::cerr
+            << "FAIL: timeout should identify the failed step\n";
+        return 1;
+    }
+
+    if (timeout_result.failed_step.value() !=
+        "Slow relay activation")
+    {
+        std::cerr << "FAIL: timed-out step name is incorrect\n";
+        return 1;
+    }
+
+    if (timeout_result.message !=
+        "Step exceeded timeout of 1 ms")
+    {
+        std::cerr << "FAIL: timeout message is incorrect\n";
+        std::cerr << "Actual message: "
+                << timeout_result.message << '\n';
+        return 1;
+    }
+
+    const std::string expected_timeout_output =
+        "Running procedure: Timeout test\n"
+        "Step: Slow relay activation\n"
+        "Result: FAIL\n";
+
+    if (timeout_output.str() != expected_timeout_output)
+    {
+        std::cerr << "FAIL: timeout output is incorrect\n";
         return 1;
     }
 
