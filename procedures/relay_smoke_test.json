@@ -3,19 +3,25 @@
     "steps": [
         {
             "name": "Switch relay on",
-            "action": "relay_on"
+            "action": "relay_on",
+            "timeout_ms": 500
         },
         {
             "name": "Verify relay on",
-            "action": "expect_relay_on"
+            "action": "expect_relay_on",
+            "retries": 2,
+            "timeout_ms": 500
         },
         {
             "name": "Switch relay off",
-            "action": "relay_off"
+            "action": "relay_off",
+            "timeout_ms": 500
         },
         {
             "name": "Verify relay off",
-            "action": "expect_relay_off"
+            "action": "expect_relay_off",
+            "retries": 2,
+            "timeout_ms": 500
         }
     ]
 }
