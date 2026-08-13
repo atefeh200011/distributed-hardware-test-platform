@@ -5,6 +5,35 @@
 #include "simulated_relay.h"
 #include "test_executor.h"
 
+class RecoveringRelay : public IRelay
+{
+public:
+    void turn_on() override
+    {
+        is_on_ = true;
+    }
+
+    void turn_off() override
+    {
+        is_on_ = false;
+    }
+
+    bool is_on() const override
+    {
+        if (remaining_failed_reads_ > 0)
+        {
+            --remaining_failed_reads_;
+            return false;
+        }
+
+        return is_on_;
+    }
+
+private:
+    bool is_on_{true};
+    mutable int remaining_failed_reads_{1};
+};
+
 int main()
 {
     TestProcedure passing_procedure{
@@ -118,6 +147,115 @@ int main()
     if (failure_output.str() != expected_failure_output)
     {
         std::cerr << "FAIL: failure output is incorrect\n";
+        return 1;
+    }
+    TestProcedure retry_failure_procedure{
+        "Retry failure test",
+        {
+            {
+                "Verify relay on",
+                TestAction::expect_relay_on,
+                2
+            }
+        }
+    };
+
+    SimulatedRelay retry_failure_relay;
+    std::ostringstream retry_failure_output;
+
+    const TestResult retry_failure_result =
+        execute_procedure(
+            retry_failure_procedure,
+            retry_failure_relay,
+            retry_failure_output);
+
+    if (retry_failure_result.passed)
+    {
+        std::cerr
+            << "FAIL: exhausted retries should fail\n";
+        return 1;
+    }
+
+    if (retry_failure_result.completed_steps != 0)
+    {
+        std::cerr
+            << "FAIL: exhausted step should not be completed\n";
+        return 1;
+    }
+
+    const std::string expected_retry_failure_output =
+        "Running procedure: Retry failure test\n"
+        "Step: Verify relay on\n"
+        "Retrying step: Verify relay on (attempt 2 of 3)\n"
+        "Retrying step: Verify relay on (attempt 3 of 3)\n"
+        "Result: FAIL\n";
+
+    if (retry_failure_output.str() !=
+        expected_retry_failure_output)
+    {
+        std::cerr << "FAIL: retry output is incorrect\n";
+        std::cerr << "Expected:\n"
+            << expected_retry_failure_output;
+        std::cerr << "Actual:\n"
+            << retry_failure_output.str();
+        return 1;
+    }
+
+    TestProcedure retry_success_procedure{
+        "Retry recovery test",
+        {
+            {
+                "Verify relay on",
+                TestAction::expect_relay_on,
+                1
+            }
+        }
+    };
+
+    RecoveringRelay recovering_relay;
+    std::ostringstream retry_success_output;
+
+    const TestResult retry_success_result =
+        execute_procedure(
+            retry_success_procedure,
+            recovering_relay,
+            retry_success_output);
+
+    if (retry_success_result.passed == false)
+    {
+        std::cerr
+            << "FAIL: second attempt should succeed\n";
+        return 1;
+    }
+
+    if (retry_success_result.completed_steps != 1)
+    {
+        std::cerr
+            << "FAIL: recovered step should be completed\n";
+        return 1;
+    }
+
+    if (retry_success_result.failed_step.has_value())
+    {
+        std::cerr
+            << "FAIL: recovered procedure should not have a failed step\n";
+        return 1;
+    }
+
+    const std::string expected_retry_success_output =
+        "Running procedure: Retry recovery test\n"
+        "Step: Verify relay on\n"
+        "Retrying step: Verify relay on (attempt 2 of 2)\n"
+        "Result: PASS\n";
+
+    if (retry_success_output.str() !=
+        expected_retry_success_output)
+    {
+        std::cerr << "FAIL: retry recovery output is incorrect\n";
+        std::cerr << "Expected:\n"
+                << expected_retry_success_output;
+        std::cerr << "Actual:\n"
+                << retry_success_output.str();
         return 1;
     }
 

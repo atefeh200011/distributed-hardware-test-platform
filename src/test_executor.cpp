@@ -1,5 +1,53 @@
 #include "test_executor.h"
 
+#include <string>
+
+namespace
+{
+bool execute_step(
+    const TestStep& step,
+    IRelay& relay,
+    std::string& failure_message)
+{
+    if (step.action == TestAction::relay_on)
+    {
+        relay.turn_on();
+        return true;
+    }
+
+    if (step.action == TestAction::relay_off)
+    {
+        relay.turn_off();
+        return true;
+    }
+
+    if (step.action == TestAction::expect_relay_on)
+    {
+        if (relay.is_on() == false)
+        {
+            failure_message = "Expected relay to be on";
+            return false;
+        }
+
+        return true;
+    }
+
+    if (step.action == TestAction::expect_relay_off)
+    {
+        if (relay.is_on())
+        {
+            failure_message = "Expected relay to be off";
+            return false;
+        }
+
+        return true;
+    }
+
+    failure_message = "Unsupported test action";
+    return false;
+}
+}
+
 TestResult execute_procedure(
     const TestProcedure& procedure,
     IRelay& relay,
@@ -13,41 +61,47 @@ TestResult execute_procedure(
     {
         output << "Step: " << step.name << '\n';
 
-        if (step.action == TestAction::relay_on)
-        {
-            relay.turn_on();
-        }
-        else if (step.action == TestAction::relay_off)
-        {
-            relay.turn_off();
-        }
-        else if (step.action == TestAction::expect_relay_on)
-        {
-            if (relay.is_on() == false)
-            {
-                output << "Result: FAIL\n";
+        const std::size_t maximum_attempts =
+            step.retries + 1;
 
-                return TestResult{
-                    false,
-                    completed_steps,
-                    step.name,
-                    "Expected relay to be on"
-                };
+        bool step_passed = false;
+        std::string failure_message;
+
+        for (std::size_t attempt = 1;
+             attempt <= maximum_attempts;
+             ++attempt)
+        {
+            failure_message.clear();
+
+            if (execute_step(step, relay, failure_message))
+            {
+                step_passed = true;
+                break;
+            }
+
+            if (attempt < maximum_attempts)
+            {
+                output
+                    << "Retrying step: "
+                    << step.name
+                    << " (attempt "
+                    << (attempt + 1)
+                    << " of "
+                    << maximum_attempts
+                    << ")\n";
             }
         }
-        else if (step.action == TestAction::expect_relay_off)
-        {
-            if (relay.is_on() == true)
-            {
-                output << "Result: FAIL\n";
 
-                return TestResult{
-                    false,
-                    completed_steps,
-                    step.name,
-                    "Expected relay to be off"
-                };
-            }
+        if (step_passed == false)
+        {
+            output << "Result: FAIL\n";
+
+            return TestResult{
+                false,
+                completed_steps,
+                step.name,
+                failure_message
+            };
         }
 
         ++completed_steps;
