@@ -32,6 +32,12 @@ add_executable(simulated_relay_tests
 )
 target_compile_features(simulated_relay_tests PRIVATE cxx_std_20)
 
+target_compile_options(hwtest PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
 target_include_directories(simulated_relay_tests PRIVATE src)
 
 add_test(
