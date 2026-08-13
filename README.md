@@ -5,8 +5,8 @@ communication, and automated test execution.
 
 ## Project status
 
-Milestone 1 complete: C++20 project foundation, interactive command-line shell,
-and automated command tests.
+Milestone 2 complete: hardware abstraction, deterministic simulated relay
+driver, CLI-based relay control, and automated state-transition tests.
 
 ## Planned capabilities
 
@@ -18,7 +18,8 @@ and automated command tests.
 
 ## Motivation
 
-I am building this project to develop practical skills in modern C++, hardware communication, and automated testing.
+I am building this project to develop practical skills in modern C++, hardware
+communication, and automated testing.
 
 ## Requirements
 
@@ -56,6 +57,9 @@ Available commands:
 | --- | --- |
 | `help` | Show available commands |
 | `status` | Show platform status |
+| `relay on` | Switch the simulated relay on |
+| `relay off` | Switch the simulated relay off |
+| `relay status` | Show the simulated relay state |
 | `exit` | Exit the application |
 
 ## Test
@@ -66,16 +70,29 @@ Run all automated tests:
 ctest --test-dir build --output-on-failure
 ```
 
+## Architecture
+
+The command shell depends on the `IRelay` interface rather than a specific
+hardware implementation. The current `SimulatedRelay` driver provides
+deterministic in-memory behavior for development and automated testing.
+
+Future physical relay drivers can implement the same interface without changing
+the command-processing logic.
+
 ## Project structure
 
 ```text
 .
 ├── src/
+│   ├── relay.h
+│   ├── simulated_relay.cpp
+│   ├── simulated_relay.h
 │   ├── command_shell.cpp
 │   ├── command_shell.h
 │   └── main.cpp
 ├── tests/
-│   └── command_shell_tests.cpp
+│   ├── command_shell_tests.cpp
+│   └── simulated_relay_tests.cpp
 ├── CMakeLists.txt
 ├── README.md
 └── .gitignore
