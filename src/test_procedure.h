@@ -17,6 +17,7 @@ struct TestStep
     std::string name;
     TestAction action;
     std::size_t retries{0};
+    std::size_t timeout_ms{1000};
 };
 
 struct TestProcedure

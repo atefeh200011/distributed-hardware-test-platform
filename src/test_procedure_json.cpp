@@ -116,8 +116,30 @@ bool parse_test_procedure_json(
                     step_json["retries"].get<std::size_t>();
             }
 
+            std::size_t timeout_ms = 1000;
+
+            if (step_json.contains("timeout_ms"))
+            {
+                if (step_json["timeout_ms"].is_number_unsigned() == false)
+                {
+                    error_message =
+                        "step timeout_ms must be a positive integer";
+                    return false;
+                }
+
+                timeout_ms =
+                    step_json["timeout_ms"].get<std::size_t>();
+
+                if (timeout_ms == 0)
+                {
+                    error_message =
+                        "step timeout_ms must be a positive integer";
+                    return false;
+                }
+            }
+
             parsed_procedure.steps.push_back(
-                TestStep{step_name, action, retries});
+                TestStep{step_name, action, retries, timeout_ms});
         }
 
         procedure = parsed_procedure;

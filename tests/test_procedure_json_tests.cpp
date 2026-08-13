@@ -5,7 +5,7 @@
 
 int main()
 {
-    // Test 1: Parse a valid JSON procedure.
+   
     const std::string valid_json = R"(
 {
     "name": "Relay smoke test",
@@ -17,7 +17,8 @@ int main()
         {
             "name": "Verify relay on",
             "action": "expect_relay_on",
-            "retries": 2
+            "retries": 2,
+            "timeout_ms": 500
         },
         {
             "name": "Switch relay off",
@@ -95,18 +96,30 @@ int main()
         return 1;
     }
 
-    // Test 2: Reject an unknown hardware-test action.
+    if (procedure.steps[0].timeout_ms != 1000)
+    {
+        std::cerr
+            << "FAIL: missing timeout should default to 1000 ms\n";
+        return 1;
+    }
+
+    if (procedure.steps[1].timeout_ms != 500)
+    {
+        std::cerr << "FAIL: timeout was not parsed\n";
+        return 1;
+    }
+
     const std::string unknown_action_json = R"(
-{
-    "name": "Invalid action test",
-    "steps": [
-        {
-            "name": "Invalid action",
-            "action": "explode_relay"
-        }
-    ]
-}
-)";
+    {
+        "name": "Invalid action test",
+        "steps": [
+            {
+                "name": "Invalid action",
+                "action": "explode_relay"
+            }
+        ]
+    }
+    )";
 
     TestProcedure unknown_action_procedure;
     std::string unknown_action_error;
@@ -128,23 +141,22 @@ int main()
     {
         std::cerr << "FAIL: unknown action error is incorrect\n";
         std::cerr << "Actual error: "
-                  << unknown_action_error << '\n';
+                << unknown_action_error << '\n';
         return 1;
     }
-
-    // Test 3: Reject a negative retry count.
+    
     const std::string invalid_retries_json = R"(
-{
-    "name": "Invalid retries",
-    "steps": [
-        {
-            "name": "Switch relay on",
-            "action": "relay_on",
-            "retries": -1
-        }
-    ]
-}
-)";
+    {
+        "name": "Invalid retries",
+        "steps": [
+            {
+                "name": "Switch relay on",
+                "action": "relay_on",
+                "retries": -1
+            }
+        ]
+    }
+    )";
 
     TestProcedure invalid_retries_procedure;
     std::string invalid_retries_error;
@@ -157,18 +169,52 @@ int main()
 
     if (invalid_retries_parsed)
     {
-        std::cerr
-            << "FAIL: negative retries should be rejected\n";
+        std::cerr << "FAIL: negative retries should be rejected\n";
         return 1;
     }
 
     if (invalid_retries_error !=
         "step retries must be a non-negative integer")
     {
-        std::cerr
-            << "FAIL: invalid retries error is incorrect\n";
+        std::cerr << "FAIL: invalid retries error is incorrect\n";
         std::cerr << "Actual error: "
-                  << invalid_retries_error << '\n';
+                << invalid_retries_error << '\n';
+        return 1;
+    }
+    const std::string invalid_timeout_json = R"(
+    {
+        "name": "Invalid timeout",
+        "steps": [
+            {
+                "name": "Switch relay on",
+                "action": "relay_on",
+                "timeout_ms": 0
+            }
+        ]
+    }
+    )";
+
+    TestProcedure invalid_timeout_procedure;
+    std::string invalid_timeout_error;
+
+    const bool invalid_timeout_parsed =
+        parse_test_procedure_json(
+            invalid_timeout_json,
+            invalid_timeout_procedure,
+            invalid_timeout_error);
+
+    if (invalid_timeout_parsed)
+    {
+        std::cerr << "FAIL: zero timeout should be rejected\n";
+        return 1;
+    }
+
+    if (invalid_timeout_error !=
+        "step timeout_ms must be a positive integer")
+    {
+        std::cerr << "FAIL: invalid timeout error is incorrect\n";
+        std::cerr << "Actual error: "
+                << invalid_timeout_error << '\n';
         return 1;
     }
 
