@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,7 @@ struct TestStep
 {
     std::string name;
     TestAction action;
+    std::size_t retries{0};
 };
 
 struct TestProcedure

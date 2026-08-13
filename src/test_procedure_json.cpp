@@ -1,15 +1,15 @@
 #include "test_procedure_json.h"
 
+#include <cstddef>
 #include <exception>
-#include <string>
 #include <fstream>
 #include <sstream>
+#include <string>
 
 #include <nlohmann/json.hpp>
 
 namespace
 {
-
 bool parse_action(
     const std::string& action_text,
     TestAction& action)
@@ -40,8 +40,7 @@ bool parse_action(
 
     return false;
 }
-
-} // namespace
+}
 
 bool parse_test_procedure_json(
     const std::string& json_text,
@@ -50,63 +49,84 @@ bool parse_test_procedure_json(
 {
     try
     {
-        const nlohmann::json document =
+        const nlohmann::json parsed_json =
             nlohmann::json::parse(json_text);
 
-        if (document.contains("name") == false ||
-            document["name"].is_string() == false)
+        if (parsed_json.contains("name") == false ||
+            parsed_json["name"].is_string() == false)
         {
             error_message = "procedure name must be a string";
             return false;
         }
 
-        if (document.contains("steps") == false ||
-            document["steps"].is_array() == false)
+        if (parsed_json.contains("steps") == false ||
+            parsed_json["steps"].is_array() == false)
         {
             error_message = "procedure steps must be an array";
             return false;
         }
 
         TestProcedure parsed_procedure;
-        parsed_procedure.name = document["name"].get<std::string>();
+        parsed_procedure.name =
+            parsed_json["name"].get<std::string>();
 
-        for (const nlohmann::json& json_step : document["steps"])
+        for (const auto& step_json : parsed_json["steps"])
         {
-            if (json_step.contains("name") == false ||
-                json_step["name"].is_string() == false)
+            if (step_json.contains("name") == false ||
+                step_json["name"].is_string() == false)
             {
                 error_message = "step name must be a string";
                 return false;
             }
 
-            if (json_step.contains("action") == false ||
-                json_step["action"].is_string() == false)
+            if (step_json.contains("action") == false ||
+                step_json["action"].is_string() == false)
             {
                 error_message = "step action must be a string";
                 return false;
             }
 
-            TestAction action;
+            const std::string step_name =
+                step_json["name"].get<std::string>();
+
             const std::string action_text =
-                json_step["action"].get<std::string>();
+                step_json["action"].get<std::string>();
+
+            TestAction action;
 
             if (parse_action(action_text, action) == false)
             {
-                error_message = "unknown test action: " + action_text;
+                error_message =
+                    "unknown test action: " + action_text;
                 return false;
             }
 
+            std::size_t retries = 0;
+
+            if (step_json.contains("retries"))
+            {
+                if (step_json["retries"].is_number_unsigned() == false)
+                {
+                    error_message =
+                        "step retries must be a non-negative integer";
+                    return false;
+                }
+
+                retries =
+                    step_json["retries"].get<std::size_t>();
+            }
+
             parsed_procedure.steps.push_back(
-                {json_step["name"].get<std::string>(), action});
+                TestStep{step_name, action, retries});
         }
 
         procedure = parsed_procedure;
         error_message.clear();
         return true;
     }
-    catch (const std::exception& error)
+    catch (const std::exception& exception)
     {
-        error_message = error.what();
+        error_message = exception.what();
         return false;
     }
 }
@@ -116,19 +136,20 @@ bool load_test_procedure_file(
     TestProcedure& procedure,
     std::string& error_message)
 {
-    std::ifstream file{file_path};
+    std::ifstream input_file(file_path);
 
-    if (file.is_open() == false)
+    if (input_file.is_open() == false)
     {
-        error_message = "could not open file: " + file_path;
+        error_message =
+            "could not open procedure file: " + file_path;
         return false;
     }
 
-    std::ostringstream contents;
-    contents << file.rdbuf();
+    std::ostringstream json_text;
+    json_text << input_file.rdbuf();
 
     return parse_test_procedure_json(
-        contents.str(),
+        json_text.str(),
         procedure,
         error_message);
 }
