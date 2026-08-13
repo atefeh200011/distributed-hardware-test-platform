@@ -141,7 +141,7 @@ int main()
     {
         std::cerr << "FAIL: unknown action error is incorrect\n";
         std::cerr << "Actual error: "
-                << unknown_action_error << '\n';
+                  << unknown_action_error << '\n';
         return 1;
     }
     
