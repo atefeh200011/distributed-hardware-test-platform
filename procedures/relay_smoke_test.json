@@ -1,0 +1,21 @@
+{
+    "name": "Relay smoke test",
+    "steps": [
+        {
+            "name": "Switch relay on",
+            "action": "relay_on"
+        },
+        {
+            "name": "Verify relay on",
+            "action": "expect_relay_on"
+        },
+        {
+            "name": "Switch relay off",
+            "action": "relay_off"
+        },
+        {
+            "name": "Verify relay off",
+            "action": "expect_relay_off"
+        }
+    ]
+}

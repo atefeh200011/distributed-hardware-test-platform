@@ -2,6 +2,8 @@
 
 #include <exception>
 #include <string>
+#include <fstream>
+#include <sstream>
 
 #include <nlohmann/json.hpp>
 
@@ -107,4 +109,26 @@ bool parse_test_procedure_json(
         error_message = error.what();
         return false;
     }
+}
+
+bool load_test_procedure_file(
+    const std::string& file_path,
+    TestProcedure& procedure,
+    std::string& error_message)
+{
+    std::ifstream file{file_path};
+
+    if (file.is_open() == false)
+    {
+        error_message = "could not open file: " + file_path;
+        return false;
+    }
+
+    std::ostringstream contents;
+    contents << file.rdbuf();
+
+    return parse_test_procedure_json(
+        contents.str(),
+        procedure,
+        error_message);
 }

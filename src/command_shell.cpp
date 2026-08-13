@@ -1,5 +1,5 @@
-
-
+#include "test_executor.h"
+#include "test_procedure_json.h"
 #include "command_shell.h"
 
 void print_help(std::ostream& output)
@@ -11,6 +11,7 @@ void print_help(std::ostream& output)
     output << "  relay off     Switch the relay off\n";
     output << "  relay status  Show the relay state\n";
     output << "  exit    Exit the application\n";
+    output << "  run <file>    Run a JSON test procedure\n";
 }
 
 bool handle_command(
@@ -51,6 +52,27 @@ bool handle_command(
             output << "Relay state: off\n";
         }
 
+        return true;
+    }
+
+    else if (command.starts_with("run "))
+    {
+        const std::string file_path = command.substr(4);
+
+        TestProcedure procedure;
+        std::string error_message;
+
+        if (load_test_procedure_file(
+                file_path,
+                procedure,
+                error_message) == false)
+        {
+            output << "Failed to load procedure: "
+                << error_message << '\n';
+            return true;
+        }
+
+        execute_procedure(procedure, relay, output);
         return true;
     }
     else if (command == "status")

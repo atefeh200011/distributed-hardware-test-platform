@@ -7,14 +7,22 @@ add_executable(hwtest
     src/command_shell.cpp
     src/main.cpp
     src/simulated_relay.cpp
+    src/test_executor.cpp
+    src/test_procedure_json.cpp
 )
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
+
 
 target_compile_options(hwtest PRIVATE
     -Wall
     -Wextra
     -Wpedantic
+)
+
+target_link_libraries(
+    hwtest
+    PRIVATE nlohmann_json::nlohmann_json
 )
 
 enable_testing()
@@ -23,11 +31,18 @@ add_executable(command_shell_tests
     tests/command_shell_tests.cpp
     src/command_shell.cpp
     src/simulated_relay.cpp
+    src/test_executor.cpp
+    src/test_procedure_json.cpp
 )
 
 target_compile_features(command_shell_tests PRIVATE cxx_std_20)
 
 target_include_directories(command_shell_tests PRIVATE src)
+
+target_link_libraries(
+    command_shell_tests
+    PRIVATE nlohmann_json::nlohmann_json
+)
 
 add_test(
     NAME command_shell_commands
