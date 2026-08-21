@@ -151,3 +151,23 @@ add_test(
     NAME network_protocol
     COMMAND network_protocol_tests
 )
+
+add_executable(network_framing_tests
+    tests/network_framing_tests.cpp
+    src/network_framing.cpp
+)
+
+target_compile_features(network_framing_tests PRIVATE cxx_std_20)
+
+target_compile_options(network_framing_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(network_framing_tests PRIVATE src)
+
+add_test(
+    NAME network_framing
+    COMMAND network_framing_tests
+)
