@@ -191,3 +191,23 @@ target_link_libraries(
     hwtest_server
     PRIVATE nlohmann_json::nlohmann_json
 )
+add_executable(hwtest_client
+    src/tcp_client_main.cpp
+    src/network_framing.cpp
+    src/network_protocol_json.cpp
+)
+
+target_compile_features(hwtest_client PRIVATE cxx_std_20)
+
+target_compile_options(hwtest_client PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(hwtest_client PRIVATE src)
+
+target_link_libraries(
+    hwtest_client
+    PRIVATE nlohmann_json::nlohmann_json
+)
