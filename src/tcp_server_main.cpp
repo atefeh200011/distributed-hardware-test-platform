@@ -2,8 +2,8 @@
 #include <cerrno>
 #include <cstring>
 #include <iostream>
-#include <string>
 #include <sstream>
+#include <string>
 
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -45,6 +45,109 @@ bool send_all(int socket_descriptor, const std::string& data)
     }
 
     return true;
+}
+
+bool receive_message(
+    int client_socket,
+    std::string& message)
+{
+    std::string receive_buffer;
+    char received_data[4096];
+
+    while (extract_next_message(
+               receive_buffer,
+               message) == false)
+    {
+        const ssize_t received = recv(
+            client_socket,
+            received_data,
+            sizeof(received_data),
+            0);
+
+        if (received == 0)
+        {
+            std::cerr
+                << "Client disconnected before sending a message\n";
+            return false;
+        }
+
+        if (received < 0)
+        {
+            std::cerr
+                << "Server receive failed: "
+                << std::strerror(errno)
+                << '\n';
+            return false;
+        }
+
+        receive_buffer.append(
+            received_data,
+            static_cast<std::size_t>(received));
+
+        if (receive_buffer.size() > maximum_message_size)
+        {
+            std::cerr << "Received message is too large\n";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool handle_client(
+    int client_socket,
+    SimulatedRelay& relay,
+    bool& shutdown_requested)
+{
+    std::string request_message;
+
+    if (receive_message(
+            client_socket,
+            request_message) == false)
+    {
+        return false;
+    }
+
+    CommandRequest request;
+    std::string parse_error;
+    CommandResponse response;
+
+    if (parse_command_request(
+            request_message,
+            request,
+            parse_error))
+    {
+        std::ostringstream command_output;
+
+        const bool shell_should_continue =
+            handle_command(
+                request.command,
+                relay,
+                command_output);
+
+        shutdown_requested =
+            shell_should_continue == false;
+
+        response = CommandResponse{
+            request.request_id,
+            true,
+            command_output.str()
+        };
+    }
+    else
+    {
+        response = CommandResponse{
+            "unknown",
+            false,
+            "Invalid request: " + parse_error + '\n'
+        };
+    }
+
+    const std::string response_message =
+        frame_message(
+            serialize_command_response(response));
+
+    return send_all(client_socket, response_message);
 }
 }
 
@@ -109,7 +212,7 @@ int main()
         return 1;
     }
 
-    if (listen(server_socket, 1) < 0)
+    if (listen(server_socket, 8) < 0)
     {
         std::cerr
             << "Failed to listen for clients: "
@@ -124,113 +227,40 @@ int main()
         << server_port
         << '\n';
 
-    const int client_socket =
-        accept(server_socket, nullptr, nullptr);
+    SimulatedRelay relay;
+    bool shutdown_requested = false;
 
-    if (client_socket < 0)
+    while (shutdown_requested == false)
     {
-        std::cerr
-            << "Failed to accept client: "
-            << std::strerror(errno)
-            << '\n';
-        close(server_socket);
-        return 1;
-    }
+        const int client_socket =
+            accept(server_socket, nullptr, nullptr);
 
-    std::string receive_buffer;
-    std::string request_message;
-    char received_data[4096];
-
-    while (extract_next_message(
-               receive_buffer,
-               request_message) == false)
-    {
-        const ssize_t received = recv(
-            client_socket,
-            received_data,
-            sizeof(received_data),
-            0);
-
-        if (received == 0)
+        if (client_socket < 0)
         {
             std::cerr
-                << "Client disconnected before sending a message\n";
-            close(client_socket);
-            close(server_socket);
-            return 1;
-        }
-
-        if (received < 0)
-        {
-            std::cerr
-                << "Server receive failed: "
+                << "Failed to accept client: "
                 << std::strerror(errno)
                 << '\n';
-            close(client_socket);
             close(server_socket);
             return 1;
         }
 
-        receive_buffer.append(
-            received_data,
-            static_cast<std::size_t>(received));
+        const bool handled =
+            handle_client(
+                client_socket,
+                relay,
+                shutdown_requested);
 
-        if (receive_buffer.size() > maximum_message_size)
+        close(client_socket);
+
+        if (handled == false)
         {
-            std::cerr << "Received message is too large\n";
-            close(client_socket);
-            close(server_socket);
-            return 1;
+            std::cerr << "Failed to handle client request\n";
         }
     }
 
-    CommandRequest request;
-    std::string parse_error;
-    CommandResponse response;
-
-    if (parse_command_request(
-            request_message,
-            request,
-            parse_error))
-    {
-        SimulatedRelay relay;
-        std::ostringstream command_output;
-
-        handle_command(
-            request.command,
-            relay,
-            command_output);
-
-        response = CommandResponse{
-            request.request_id,
-            true,
-            command_output.str()
-        };
-    }
-    else
-    {
-        response = CommandResponse{
-            "unknown",
-            false,
-            "Invalid request: " + parse_error + '\n'
-        };
-    }
-    
-    const std::string response_message =
-        frame_message(
-            serialize_command_response(response));
-
-    const bool response_sent =
-        send_all(client_socket, response_message);
-
-    close(client_socket);
     close(server_socket);
 
-    if (response_sent == false)
-    {
-        return 1;
-    }
-
-    std::cout << "Server handled one request and stopped\n";
+    std::cout << "Hardware test server stopped\n";
     return 0;
 }
