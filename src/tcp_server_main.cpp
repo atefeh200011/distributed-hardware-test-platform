@@ -3,14 +3,17 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <sstream>
 
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "command_shell.h"
 #include "network_framing.h"
 #include "network_protocol.h"
 #include "network_protocol_json.h"
+#include "simulated_relay.h"
 
 namespace
 {
@@ -190,10 +193,18 @@ int main()
             request,
             parse_error))
     {
+        SimulatedRelay relay;
+        std::ostringstream command_output;
+
+        handle_command(
+            request.command,
+            relay,
+            command_output);
+
         response = CommandResponse{
             request.request_id,
             true,
-            "Request received: " + request.command + '\n'
+            command_output.str()
         };
     }
     else
@@ -204,7 +215,7 @@ int main()
             "Invalid request: " + parse_error + '\n'
         };
     }
-
+    
     const std::string response_message =
         frame_message(
             serialize_command_response(response));

@@ -173,8 +173,12 @@ add_test(
 )
 add_executable(hwtest_server
     src/tcp_server_main.cpp
+    src/command_shell.cpp
     src/network_framing.cpp
     src/network_protocol_json.cpp
+    src/simulated_relay.cpp
+    src/test_executor.cpp
+    src/test_procedure_json.cpp
 )
 
 target_compile_features(hwtest_server PRIVATE cxx_std_20)
