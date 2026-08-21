@@ -171,3 +171,23 @@ add_test(
     NAME network_framing
     COMMAND network_framing_tests
 )
+add_executable(hwtest_server
+    src/tcp_server_main.cpp
+    src/network_framing.cpp
+    src/network_protocol_json.cpp
+)
+
+target_compile_features(hwtest_server PRIVATE cxx_std_20)
+
+target_compile_options(hwtest_server PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(hwtest_server PRIVATE src)
+
+target_link_libraries(
+    hwtest_server
+    PRIVATE nlohmann_json::nlohmann_json
+)
