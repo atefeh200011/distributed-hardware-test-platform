@@ -97,6 +97,83 @@ int main()
         return 1;
     }
 
-    std::cout << "PASS: network request JSON protocol\n";
+    const CommandResponse original_response{
+        "request-004",
+        true,
+        "Relay state: on\n"
+    };
+
+    const std::string response_json =
+        serialize_command_response(original_response);
+
+    CommandResponse parsed_response;
+    std::string response_error;
+
+    const bool response_parsed = parse_command_response(
+        response_json,
+        parsed_response,
+        response_error);
+
+    if (response_parsed == false)
+    {
+        std::cerr << "FAIL: serialized response should parse\n";
+        std::cerr << "Error: " << response_error << '\n';
+        return 1;
+    }
+
+    if (parsed_response.request_id !=
+        original_response.request_id)
+    {
+        std::cerr << "FAIL: parsed response ID is incorrect\n";
+        return 1;
+    }
+
+    if (parsed_response.success != original_response.success)
+    {
+        std::cerr
+            << "FAIL: parsed response success value is incorrect\n";
+        return 1;
+    }
+
+    if (parsed_response.output != original_response.output)
+    {
+        std::cerr << "FAIL: parsed response output is incorrect\n";
+        return 1;
+    }
+
+    const std::string invalid_response_json = R"(
+    {
+        "request_id": "request-005",
+        "success": "yes",
+        "output": "Invalid response"
+    }
+    )";
+
+    CommandResponse invalid_response;
+    std::string invalid_response_error;
+
+    const bool invalid_response_parsed =
+        parse_command_response(
+            invalid_response_json,
+            invalid_response,
+            invalid_response_error);
+
+    if (invalid_response_parsed)
+    {
+        std::cerr
+            << "FAIL: non-Boolean success should be rejected\n";
+        return 1;
+    }
+
+    if (invalid_response_error != "success must be a boolean")
+    {
+        std::cerr
+            << "FAIL: invalid response error is incorrect\n";
+        std::cerr << "Actual error: "
+                << invalid_response_error << '\n';
+        return 1;
+    }
+
+    std::cout << "PASS: network JSON protocol\n";
     return 0;
 }
