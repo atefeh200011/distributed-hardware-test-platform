@@ -225,7 +225,7 @@ int main()
     std::cout
         << "Hardware test server listening on 127.0.0.1:"
         << server_port
-        << '\n';
+        << std::endl;
 
     SimulatedRelay relay;
     bool shutdown_requested = false;

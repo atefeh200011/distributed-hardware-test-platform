@@ -215,3 +215,17 @@ target_link_libraries(
     hwtest_client
     PRIVATE nlohmann_json::nlohmann_json
 )
+add_test(
+    NAME tcp_client_server_integration
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp_integration_test.sh
+        $<TARGET_FILE:hwtest_server>
+        $<TARGET_FILE:hwtest_client>
+)
+
+set_tests_properties(
+    tcp_client_server_integration
+    PROPERTIES
+        TIMEOUT 10
+        RUN_SERIAL TRUE
+)
