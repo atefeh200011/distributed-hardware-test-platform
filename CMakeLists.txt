@@ -129,6 +129,7 @@ add_test(
 )
 add_executable(network_protocol_tests
     tests/network_protocol_tests.cpp
+    src/network_protocol_json.cpp
 )
 
 target_compile_features(network_protocol_tests PRIVATE cxx_std_20)
@@ -140,6 +141,11 @@ target_compile_options(network_protocol_tests PRIVATE
 )
 
 target_include_directories(network_protocol_tests PRIVATE src)
+
+target_link_libraries(
+    network_protocol_tests
+    PRIVATE nlohmann_json::nlohmann_json
+)
 
 add_test(
     NAME network_protocol

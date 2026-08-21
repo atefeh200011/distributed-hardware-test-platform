@@ -1,51 +1,102 @@
 #include <iostream>
+#include <string>
 
 #include "network_protocol.h"
+#include "network_protocol_json.h"
 
 int main()
 {
-    const CommandRequest request{
+    const CommandRequest original_request{
         "request-001",
         "relay on"
     };
 
-    if (request.request_id != "request-001")
+    const std::string json_text =
+        serialize_command_request(original_request);
+
+    CommandRequest parsed_request;
+    std::string error_message;
+
+    const bool parsed = parse_command_request(
+        json_text,
+        parsed_request,
+        error_message);
+
+    if (parsed == false)
     {
-        std::cerr << "FAIL: request ID is incorrect\n";
+        std::cerr << "FAIL: serialized request should parse\n";
+        std::cerr << "Error: " << error_message << '\n';
         return 1;
     }
 
-    if (request.command != "relay on")
+    if (parsed_request.request_id !=
+        original_request.request_id)
     {
-        std::cerr << "FAIL: request command is incorrect\n";
+        std::cerr << "FAIL: parsed request ID is incorrect\n";
         return 1;
     }
 
-    const CommandResponse response{
-        request.request_id,
-        true,
-        "Relay state: on\n"
-    };
+    if (parsed_request.command != original_request.command)
+    {
+        std::cerr << "FAIL: parsed command is incorrect\n";
+        return 1;
+    }
 
-    if (response.request_id != request.request_id)
+    const std::string missing_command_json = R"(
+{
+    "request_id": "request-002"
+}
+)";
+
+    CommandRequest invalid_request;
+    std::string invalid_error;
+
+    const bool invalid_parsed = parse_command_request(
+        missing_command_json,
+        invalid_request,
+        invalid_error);
+
+    if (invalid_parsed)
     {
         std::cerr
-            << "FAIL: response ID should match request ID\n";
+            << "FAIL: request without command should be rejected\n";
         return 1;
     }
 
-    if (response.success == false)
+    if (invalid_error != "command must be a string")
     {
-        std::cerr << "FAIL: response should indicate success\n";
+        std::cerr << "FAIL: invalid request error is incorrect\n";
+        std::cerr << "Actual error: " << invalid_error << '\n';
         return 1;
     }
 
-    if (response.output != "Relay state: on\n")
+    const std::string empty_command_json = R"(
+{
+    "request_id": "request-003",
+    "command": ""
+}
+)";
+
+    CommandRequest empty_command_request;
+    std::string empty_command_error;
+
+    const bool empty_command_parsed = parse_command_request(
+        empty_command_json,
+        empty_command_request,
+        empty_command_error);
+
+    if (empty_command_parsed)
     {
-        std::cerr << "FAIL: response output is incorrect\n";
+        std::cerr << "FAIL: empty command should be rejected\n";
         return 1;
     }
 
-    std::cout << "PASS: network protocol model\n";
+    if (empty_command_error != "command must not be empty")
+    {
+        std::cerr << "FAIL: empty command error is incorrect\n";
+        return 1;
+    }
+
+    std::cout << "PASS: network request JSON protocol\n";
     return 0;
 }
