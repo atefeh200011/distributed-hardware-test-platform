@@ -127,3 +127,21 @@ add_test(
     NAME test_procedure_json
     COMMAND test_procedure_json_tests
 )
+add_executable(network_protocol_tests
+    tests/network_protocol_tests.cpp
+)
+
+target_compile_features(network_protocol_tests PRIVATE cxx_std_20)
+
+target_compile_options(network_protocol_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(network_protocol_tests PRIVATE src)
+
+add_test(
+    NAME network_protocol
+    COMMAND network_protocol_tests
+)
