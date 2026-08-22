@@ -68,6 +68,35 @@ then
     exit 1
 fi
 
+concurrent_client_pids=()
+
+for client_index in {1..8}
+do
+    "${client_executable}" relay status \
+        >"${temporary_directory}/client-${client_index}.log" &
+    concurrent_client_pids+=("$!")
+done
+
+for client_pid in "${concurrent_client_pids[@]}"
+do
+    wait "${client_pid}"
+done
+
+for client_index in {1..8}
+do
+    concurrent_output="$(
+        cat "${temporary_directory}/client-${client_index}.log"
+    )"
+
+    if [[ "${concurrent_output}" != "Relay state: on" ]]
+    then
+        echo \
+            "FAIL: concurrent client ${client_index} received incorrect state"
+        echo "Actual: ${concurrent_output}"
+        exit 1
+    fi
+done
+
 relay_off_output="$("${client_executable}" relay off)"
 
 if [[ "${relay_off_output}" != "Relay state: off" ]]

@@ -1,9 +1,13 @@
 #include <arpa/inet.h>
+#include <atomic>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -19,11 +23,12 @@ namespace
 {
 constexpr int server_port = 5050;
 
-
 bool handle_client(
     int client_socket,
+    int server_socket,
     SimulatedRelay& relay,
-    bool& shutdown_requested)
+    std::mutex& command_mutex,
+    std::atomic_bool& shutdown_requested)
 {
     std::string request_message;
     std::string transport_error;
@@ -50,21 +55,31 @@ bool handle_client(
             parse_error))
     {
         std::ostringstream command_output;
+        bool shell_should_continue = true;
 
-        const bool shell_should_continue =
-            handle_command(
-                request.command,
-                relay,
-                command_output);
+        {
+            std::lock_guard<std::mutex> lock(command_mutex);
 
-        shutdown_requested =
-            shell_should_continue == false;
+            shell_should_continue =
+                handle_command(
+                    request.command,
+                    relay,
+                    command_output);
+        }
 
         response = CommandResponse{
             request.request_id,
             true,
             command_output.str()
         };
+
+        if (shell_should_continue == false)
+        {
+            shutdown_requested.store(true);
+
+            // Wake the main thread if it is blocked in accept().
+            shutdown(server_socket, SHUT_RDWR);
+        }
     }
     else
     {
@@ -171,38 +186,82 @@ int main()
         << std::endl;
 
     SimulatedRelay relay;
-    bool shutdown_requested = false;
+    std::mutex command_mutex;
+    std::atomic_bool shutdown_requested{false};
+    std::vector<std::thread> client_threads;
+    bool server_failed = false;
 
-    while (shutdown_requested == false)
+    while (shutdown_requested.load() == false)
     {
         const int client_socket =
             accept(server_socket, nullptr, nullptr);
 
         if (client_socket < 0)
         {
+            if (shutdown_requested.load())
+            {
+                break;
+            }
+
+            if (errno == EINTR)
+            {
+                continue;
+            }
+
             std::cerr
                 << "Failed to accept client: "
                 << std::strerror(errno)
                 << '\n';
-            close(server_socket);
-            return 1;
+
+            server_failed = true;
+            break;
         }
 
-        const bool handled =
-            handle_client(
-                client_socket,
-                relay,
-                shutdown_requested);
-
-        close(client_socket);
-
-        if (handled == false)
+        if (shutdown_requested.load())
         {
-            std::cerr << "Failed to handle client request\n";
+            close(client_socket);
+            break;
+        }
+
+        client_threads.emplace_back(
+            [client_socket,
+             server_socket,
+             &relay,
+             &command_mutex,
+             &shutdown_requested]()
+            {
+                const bool handled =
+                    handle_client(
+                        client_socket,
+                        server_socket,
+                        relay,
+                        command_mutex,
+                        shutdown_requested);
+
+                close(client_socket);
+
+                if (handled == false)
+                {
+                    std::cerr
+                        << "Failed to handle client request\n";
+                }
+            });
+    }
+
+    for (std::thread& client_thread : client_threads)
+    {
+        if (client_thread.joinable())
+        {
+            client_thread.join();
         }
     }
 
     close(server_socket);
+
+    if (server_failed)
+    {
+        return 1;
+    }
 
     std::cout << "Hardware test server stopped\n";
     return 0;

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(hardware_test_platform VERSION 0.1.0 LANGUAGES CXX)
 find_package(nlohmann_json 3.11 REQUIRED)
+find_package(Threads REQUIRED)
 
 add_executable(hwtest
     src/command_shell.cpp
@@ -127,6 +128,7 @@ add_test(
     NAME test_procedure_json
     COMMAND test_procedure_json_tests
 )
+
 add_executable(network_protocol_tests
     tests/network_protocol_tests.cpp
     src/network_protocol_json.cpp
@@ -194,8 +196,11 @@ target_include_directories(hwtest_server PRIVATE src)
 
 target_link_libraries(
     hwtest_server
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE
+        nlohmann_json::nlohmann_json
+        Threads::Threads
 )
+
 add_executable(hwtest_client
     src/tcp_client_main.cpp
     src/network_framing.cpp
