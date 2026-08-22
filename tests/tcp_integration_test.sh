@@ -4,6 +4,7 @@ set -euo pipefail
 
 server_executable="$1"
 client_executable="$2"
+procedure_file="$3"
 
 temporary_directory="$(mktemp -d)"
 server_log="${temporary_directory}/server.log"
@@ -96,6 +97,41 @@ do
         exit 1
     fi
 done
+
+procedure_output="$(
+    "${client_executable}" run "${procedure_file}"
+)"
+
+expected_procedure_output=$(
+    printf '%s\n' \
+        "Running procedure: Relay smoke test" \
+        "Step: Switch relay on" \
+        "Step: Verify relay on" \
+        "Step: Switch relay off" \
+        "Step: Verify relay off" \
+        "Result: PASS"
+)
+
+if [[ "${procedure_output}" != "${expected_procedure_output}" ]]
+then
+    echo "FAIL: remote JSON procedure output is incorrect"
+    echo "Expected:"
+    echo "${expected_procedure_output}"
+    echo "Actual:"
+    echo "${procedure_output}"
+    exit 1
+fi
+
+procedure_final_state="$(
+    "${client_executable}" relay status
+)"
+
+if [[ "${procedure_final_state}" != "Relay state: off" ]]
+then
+    echo "FAIL: remote procedure should leave relay off"
+    echo "Actual: ${procedure_final_state}"
+    exit 1
+fi
 
 relay_off_output="$("${client_executable}" relay off)"
 

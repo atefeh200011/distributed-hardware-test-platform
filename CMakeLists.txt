@@ -228,6 +228,7 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/tcp_integration_test.sh
         $<TARGET_FILE:hwtest_server>
         $<TARGET_FILE:hwtest_client>
+        ${CMAKE_CURRENT_SOURCE_DIR}/procedures/relay_smoke_test.json
 )
 
 set_tests_properties(
