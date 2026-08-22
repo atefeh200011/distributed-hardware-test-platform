@@ -179,6 +179,7 @@ add_executable(hwtest_server
     src/simulated_relay.cpp
     src/test_executor.cpp
     src/test_procedure_json.cpp
+    src/tcp_transport.cpp
 )
 
 target_compile_features(hwtest_server PRIVATE cxx_std_20)
@@ -199,6 +200,7 @@ add_executable(hwtest_client
     src/tcp_client_main.cpp
     src/network_framing.cpp
     src/network_protocol_json.cpp
+    src/tcp_transport.cpp
 )
 
 target_compile_features(hwtest_client PRIVATE cxx_std_20)
@@ -228,4 +230,24 @@ set_tests_properties(
     PROPERTIES
         TIMEOUT 10
         RUN_SERIAL TRUE
+)
+add_executable(tcp_transport_tests
+    tests/tcp_transport_tests.cpp
+    src/tcp_transport.cpp
+    src/network_framing.cpp
+)
+
+target_compile_features(tcp_transport_tests PRIVATE cxx_std_20)
+
+target_compile_options(tcp_transport_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(tcp_transport_tests PRIVATE src)
+
+add_test(
+    NAME tcp_transport
+    COMMAND tcp_transport_tests
 )

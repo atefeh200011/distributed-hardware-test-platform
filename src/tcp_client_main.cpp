@@ -8,41 +8,15 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "network_framing.h"
+#include "tcp_transport.h"
 #include "network_protocol.h"
 #include "network_protocol_json.h"
 
 namespace
 {
 constexpr int server_port = 5050;
-constexpr std::size_t maximum_message_size = 64 * 1024;
 
-bool send_all(int socket_descriptor, const std::string& data)
-{
-    std::size_t total_sent = 0;
 
-    while (total_sent < data.size())
-    {
-        const ssize_t sent = send(
-            socket_descriptor,
-            data.data() + total_sent,
-            data.size() - total_sent,
-            MSG_NOSIGNAL);
-
-        if (sent < 0)
-        {
-            std::cerr
-                << "Client send failed: "
-                << std::strerror(errno)
-                << '\n';
-            return false;
-        }
-
-        total_sent += static_cast<std::size_t>(sent);
-    }
-
-    return true;
-}
 
 std::string combine_command_arguments(
     int argument_count,
@@ -85,8 +59,7 @@ int main(int argc, char* argv[])
     };
 
     const std::string request_message =
-        frame_message(
-            serialize_command_request(request));
+        serialize_command_request(request);
 
     const int client_socket =
         socket(AF_INET, SOCK_STREAM, 0);
@@ -130,54 +103,34 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    if (send_all(client_socket, request_message) == false)
+    std::string transport_error;
+
+    if (send_framed_message(
+            client_socket,
+            request_message,
+            transport_error) == false)
     {
+        std::cerr
+            << "Failed to send client request: "
+            << transport_error
+            << '\n';
         close(client_socket);
         return 1;
     }
 
-    std::string receive_buffer;
     std::string response_message;
-    char received_data[4096];
 
-    while (extract_next_message(
-               receive_buffer,
-               response_message) == false)
-    {
-        const ssize_t received = recv(
+    if (receive_framed_message(
             client_socket,
-            received_data,
-            sizeof(received_data),
-            0);
-
-        if (received == 0)
-        {
-            std::cerr
-                << "Server disconnected before sending a response\n";
-            close(client_socket);
-            return 1;
-        }
-
-        if (received < 0)
-        {
-            std::cerr
-                << "Client receive failed: "
-                << std::strerror(errno)
-                << '\n';
-            close(client_socket);
-            return 1;
-        }
-
-        receive_buffer.append(
-            received_data,
-            static_cast<std::size_t>(received));
-
-        if (receive_buffer.size() > maximum_message_size)
-        {
-            std::cerr << "Received response is too large\n";
-            close(client_socket);
-            return 1;
-        }
+            response_message,
+            transport_error) == false)
+    {
+        std::cerr
+            << "Failed to receive server response: "
+            << transport_error
+            << '\n';
+        close(client_socket);
+        return 1;
     }
 
     close(client_socket);

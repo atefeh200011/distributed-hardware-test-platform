@@ -10,89 +10,15 @@
 #include <unistd.h>
 
 #include "command_shell.h"
-#include "network_framing.h"
 #include "network_protocol.h"
 #include "network_protocol_json.h"
 #include "simulated_relay.h"
+#include "tcp_transport.h"
 
 namespace
 {
 constexpr int server_port = 5050;
-constexpr std::size_t maximum_message_size = 64 * 1024;
 
-bool send_all(int socket_descriptor, const std::string& data)
-{
-    std::size_t total_sent = 0;
-
-    while (total_sent < data.size())
-    {
-        const ssize_t sent = send(
-            socket_descriptor,
-            data.data() + total_sent,
-            data.size() - total_sent,
-            MSG_NOSIGNAL);
-
-        if (sent < 0)
-        {
-            std::cerr
-                << "Server send failed: "
-                << std::strerror(errno)
-                << '\n';
-            return false;
-        }
-
-        total_sent += static_cast<std::size_t>(sent);
-    }
-
-    return true;
-}
-
-bool receive_message(
-    int client_socket,
-    std::string& message)
-{
-    std::string receive_buffer;
-    char received_data[4096];
-
-    while (extract_next_message(
-               receive_buffer,
-               message) == false)
-    {
-        const ssize_t received = recv(
-            client_socket,
-            received_data,
-            sizeof(received_data),
-            0);
-
-        if (received == 0)
-        {
-            std::cerr
-                << "Client disconnected before sending a message\n";
-            return false;
-        }
-
-        if (received < 0)
-        {
-            std::cerr
-                << "Server receive failed: "
-                << std::strerror(errno)
-                << '\n';
-            return false;
-        }
-
-        receive_buffer.append(
-            received_data,
-            static_cast<std::size_t>(received));
-
-        if (receive_buffer.size() > maximum_message_size)
-        {
-            std::cerr << "Received message is too large\n";
-            return false;
-        }
-    }
-
-    return true;
-}
 
 bool handle_client(
     int client_socket,
@@ -100,11 +26,17 @@ bool handle_client(
     bool& shutdown_requested)
 {
     std::string request_message;
+    std::string transport_error;
 
-    if (receive_message(
+    if (receive_framed_message(
             client_socket,
-            request_message) == false)
+            request_message,
+            transport_error) == false)
     {
+        std::cerr
+            << "Failed to receive client request: "
+            << transport_error
+            << '\n';
         return false;
     }
 
@@ -144,10 +76,21 @@ bool handle_client(
     }
 
     const std::string response_message =
-        frame_message(
-            serialize_command_response(response));
+        serialize_command_response(response);
 
-    return send_all(client_socket, response_message);
+    if (send_framed_message(
+            client_socket,
+            response_message,
+            transport_error) == false)
+    {
+        std::cerr
+            << "Failed to send server response: "
+            << transport_error
+            << '\n';
+        return false;
+    }
+
+    return true;
 }
 }
 
