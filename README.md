@@ -5,16 +5,18 @@ communication, and automated test execution.
 
 ## Project status
 
-Milestone 4 complete: reliable test execution with structured results, retry
-handling, step timeout detection, and cooperative cancellation.
+Milestone 5 complete: distributed device control through a concurrent TCP
+client/server architecture, JSON request/response messaging, persistent simulated
+hardware state, and automated network integration testing.
 
 ## Planned capabilities
 
-- Hardware abstraction and simulated device drivers
-- JSON-defined test procedures
-- Reliable test execution with timeouts, retries, and cancellation
-- TCP client/server communication
-- Automated tests and structured test reports
+- Structured logging and machine-readable test reports
+- Additional simulated and physical device drivers
+- Sanitizers, static analysis, and GitHub Actions
+- Docker-based server deployment
+- Optional Python client
+- Optional ESP32, STM32, or Raspberry Pi integration
 
 ## Motivation
 
@@ -63,6 +65,73 @@ Available commands:
 | `relay status` | Show the simulated relay state |
 | `run <file>` | Load and execute a JSON test procedure |
 | `exit` | Exit the application |
+
+## Distributed TCP operation
+
+The project includes a TCP server and command-line client. The server listens
+only on the local loopback interface at `127.0.0.1:5050`.
+
+Start the server in one terminal:
+
+```bash
+./build/hwtest_server
+```
+
+Send commands from another terminal:
+
+```bash
+./build/hwtest_client relay on
+./build/hwtest_client relay status
+./build/hwtest_client relay off
+```
+
+Run a JSON-defined test procedure remotely:
+
+```bash
+./build/hwtest_client run procedures/relay_smoke_test.json
+```
+
+Stop the server cleanly:
+
+```bash
+./build/hwtest_client exit
+```
+
+The server preserves simulated device state across separate client connections.
+Multiple clients can connect concurrently. A mutex protects shared hardware state
+and prevents concurrent command execution from causing C++ data races.
+
+## Network protocol
+
+The client and server exchange newline-delimited JSON messages over TCP. A
+newline identifies the end of each message because TCP transports an unstructured
+stream of bytes rather than preserving application message boundaries.
+
+Example request:
+
+```json
+{
+    "request_id": "client-request-001",
+    "command": "relay status"
+}
+```
+
+Example response:
+
+```json
+{
+    "request_id": "client-request-001",
+    "success": true,
+    "output": "Relay state: off\n"
+}
+```
+
+The protocol validates required fields and JSON types before executing commands.
+Responses repeat the request identifier so clients can associate responses with
+their requests.
+
+The shared transport layer handles partial sends, interrupted system calls,
+peer disconnection, newline framing, and a 64 KiB maximum message size.
 
 ## Test
 
@@ -200,6 +269,18 @@ deterministic in-memory behavior for development and automated testing.
 Future physical relay drivers can implement the same interface without changing
 the command-processing logic.
 
+The TCP server converts network requests into the same command-processing calls
+used by the local CLI. This keeps networking separate from device-control and
+test-execution logic.
+
+Each accepted client is handled by a separate C++ thread. Network reception and
+response transmission can therefore proceed concurrently, while a mutex
+serializes access to the shared relay and test engine.
+
+The current server is a local development implementation. It uses a fixed
+loopback address and port, processes one request per connection, and does not yet
+provide authentication or encryption.
+
 ## Project structure
 
 ```text
@@ -208,20 +289,33 @@ the command-processing logic.
 │   └── relay_smoke_test.json
 ├── src/
 │   ├── command_shell.cpp
-│   ├── test_result.h
 │   ├── command_shell.h
 │   ├── main.cpp
+│   ├── network_framing.cpp
+│   ├── network_framing.h
+│   ├── network_protocol.h
+│   ├── network_protocol_json.cpp
+│   ├── network_protocol_json.h
 │   ├── relay.h
 │   ├── simulated_relay.cpp
 │   ├── simulated_relay.h
+│   ├── tcp_client_main.cpp
+│   ├── tcp_server_main.cpp
+│   ├── tcp_transport.cpp
+│   ├── tcp_transport.h
 │   ├── test_executor.cpp
 │   ├── test_executor.h
 │   ├── test_procedure.h
 │   ├── test_procedure_json.cpp
-│   └── test_procedure_json.h
+│   ├── test_procedure_json.h
+│   └── test_result.h
 ├── tests/
 │   ├── command_shell_tests.cpp
+│   ├── network_framing_tests.cpp
+│   ├── network_protocol_tests.cpp
 │   ├── simulated_relay_tests.cpp
+│   ├── tcp_integration_test.sh
+│   ├── tcp_transport_tests.cpp
 │   ├── test_executor_tests.cpp
 │   ├── test_procedure_json_tests.cpp
 │   └── test_procedure_tests.cpp
