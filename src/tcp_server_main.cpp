@@ -2,10 +2,13 @@
 #include <atomic>
 #include <cerrno>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -14,6 +17,7 @@
 #include <unistd.h>
 
 #include "command_shell.h"
+#include "logger.h"
 #include "network_protocol.h"
 #include "network_protocol_json.h"
 #include "simulated_relay.h"
@@ -28,7 +32,8 @@ bool handle_client(
     int server_socket,
     SimulatedRelay& relay,
     std::mutex& command_mutex,
-    std::atomic_bool& shutdown_requested)
+    std::atomic_bool& shutdown_requested,
+    Logger& logger)
 {
     std::string request_message;
     std::string transport_error;
@@ -42,6 +47,11 @@ bool handle_client(
             << "Failed to receive client request: "
             << transport_error
             << '\n';
+
+        logger.warning(
+            "Failed to receive client request: " +
+            transport_error);
+
         return false;
     }
 
@@ -54,6 +64,9 @@ bool handle_client(
             request,
             parse_error))
     {
+        logger.info(
+            "Executing command: " + request.command);
+
         std::ostringstream command_output;
         bool shell_should_continue = true;
 
@@ -77,12 +90,16 @@ bool handle_client(
         {
             shutdown_requested.store(true);
 
-            // Wake the main thread if it is blocked in accept().
+            // Wake main() if it is blocked inside accept().
             shutdown(server_socket, SHUT_RDWR);
         }
     }
     else
     {
+        logger.warning(
+            "Rejected invalid request: " +
+            parse_error);
+
         response = CommandResponse{
             "unknown",
             false,
@@ -102,6 +119,11 @@ bool handle_client(
             << "Failed to send server response: "
             << transport_error
             << '\n';
+
+        logger.error(
+            "Failed to send server response: " +
+            transport_error);
+
         return false;
     }
 
@@ -111,15 +133,45 @@ bool handle_client(
 
 int main()
 {
+    std::error_code directory_error;
+
+    std::filesystem::create_directories(
+        "logs",
+        directory_error);
+
+    if (directory_error)
+    {
+        std::cerr
+            << "Failed to create log directory: "
+            << directory_error.message()
+            << '\n';
+        return 1;
+    }
+
+    std::ofstream log_file(
+        "logs/hwtest-server.log",
+        std::ios::app);
+
+    if (log_file.is_open() == false)
+    {
+        std::cerr << "Failed to open server log file\n";
+        return 1;
+    }
+
+    Logger logger(log_file);
+    logger.info("Hardware test server starting");
+
     const int server_socket =
         socket(AF_INET, SOCK_STREAM, 0);
 
     if (server_socket < 0)
     {
-        std::cerr
-            << "Failed to create server socket: "
-            << std::strerror(errno)
-            << '\n';
+        const std::string error_message =
+            "Failed to create server socket: " +
+            std::string(std::strerror(errno));
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
         return 1;
     }
 
@@ -132,10 +184,13 @@ int main()
             &reuse_address,
             sizeof(reuse_address)) < 0)
     {
-        std::cerr
-            << "Failed to configure server socket: "
-            << std::strerror(errno)
-            << '\n';
+        const std::string error_message =
+            "Failed to configure server socket: " +
+            std::string(std::strerror(errno));
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
+
         close(server_socket);
         return 1;
     }
@@ -149,7 +204,12 @@ int main()
             "127.0.0.1",
             &server_address.sin_addr) != 1)
     {
-        std::cerr << "Failed to configure server address\n";
+        const std::string error_message =
+            "Failed to configure server address";
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
+
         close(server_socket);
         return 1;
     }
@@ -160,22 +220,28 @@ int main()
                 &server_address),
             sizeof(server_address)) < 0)
     {
-        std::cerr
-            << "Failed to bind server to 127.0.0.1:"
-            << server_port
-            << ": "
-            << std::strerror(errno)
-            << '\n';
+        const std::string error_message =
+            "Failed to bind server to 127.0.0.1:" +
+            std::to_string(server_port) +
+            ": " +
+            std::string(std::strerror(errno));
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
+
         close(server_socket);
         return 1;
     }
 
     if (listen(server_socket, 8) < 0)
     {
-        std::cerr
-            << "Failed to listen for clients: "
-            << std::strerror(errno)
-            << '\n';
+        const std::string error_message =
+            "Failed to listen for clients: " +
+            std::string(std::strerror(errno));
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
+
         close(server_socket);
         return 1;
     }
@@ -184,6 +250,10 @@ int main()
         << "Hardware test server listening on 127.0.0.1:"
         << server_port
         << std::endl;
+
+    logger.info(
+        "TCP server listening on 127.0.0.1:" +
+        std::to_string(server_port));
 
     SimulatedRelay relay;
     std::mutex command_mutex;
@@ -208,10 +278,12 @@ int main()
                 continue;
             }
 
-            std::cerr
-                << "Failed to accept client: "
-                << std::strerror(errno)
-                << '\n';
+            const std::string error_message =
+                "Failed to accept client: " +
+                std::string(std::strerror(errno));
+
+            std::cerr << error_message << '\n';
+            logger.error(error_message);
 
             server_failed = true;
             break;
@@ -228,7 +300,8 @@ int main()
              server_socket,
              &relay,
              &command_mutex,
-             &shutdown_requested]()
+             &shutdown_requested,
+             &logger]()
             {
                 const bool handled =
                     handle_client(
@@ -236,7 +309,8 @@ int main()
                         server_socket,
                         relay,
                         command_mutex,
-                        shutdown_requested);
+                        shutdown_requested,
+                        logger);
 
                 close(client_socket);
 
@@ -244,6 +318,9 @@ int main()
                 {
                     std::cerr
                         << "Failed to handle client request\n";
+
+                    logger.error(
+                        "Failed to handle client request");
                 }
             });
     }
@@ -260,8 +337,12 @@ int main()
 
     if (server_failed)
     {
+        logger.error(
+            "Hardware test server stopped because of an error");
         return 1;
     }
+
+    logger.info("Hardware test server stopped");
 
     std::cout << "Hardware test server stopped\n";
     return 0;

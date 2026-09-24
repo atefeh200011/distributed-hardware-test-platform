@@ -65,6 +65,7 @@ void Logger::log(
         << "] "
         << message
         << '\n';
+    output_.flush();    
 }
 
 void Logger::info(const std::string& message)

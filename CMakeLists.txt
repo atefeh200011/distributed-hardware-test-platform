@@ -182,6 +182,7 @@ add_executable(hwtest_server
     src/test_executor.cpp
     src/test_procedure_json.cpp
     src/tcp_transport.cpp
+    src/logger.cpp
 )
 
 target_compile_features(hwtest_server PRIVATE cxx_std_20)
