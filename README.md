@@ -1,27 +1,45 @@
 # Distributed Hardware Test and Control Platform
 
 A modern C++20 platform for deterministic hardware testing, device control,
-communication, and automated test execution.
+network communication, automated test execution, structured logging, and
+machine-readable test reports.
 
 ## Project status
 
-Milestone 5 complete: distributed device control through a concurrent TCP
-client/server architecture, JSON request/response messaging, persistent simulated
-hardware state, and automated network integration testing.
+Milestone 6 complete: thread-safe structured logging, detailed per-step
+execution results, persistent server logs, and automatically generated JSON
+test reports.
+
+## Current capabilities
+
+- Hardware abstraction through the `IRelay` interface
+- Deterministic simulated relay driver
+- Interactive command-line control
+- JSON-defined test procedures
+- Test execution with retries and timeout detection
+- Cooperative test cancellation
+- Structured procedure and step results
+- TCP client/server communication
+- Concurrent TCP client handling
+- Persistent simulated device state across client connections
+- JSON network request and response messages
+- Thread-safe structured server logging
+- Machine-readable JSON test reports
+- Automated unit and integration tests
 
 ## Planned capabilities
 
-- Structured logging and machine-readable test reports
-- Additional simulated and physical device drivers
-- Sanitizers, static analysis, and GitHub Actions
-- Docker-based server deployment
-- Optional Python client
-- Optional ESP32, STM32, or Raspberry Pi integration
+- Multiple simulated and physical hardware devices
+- Test execution history and report analysis
+- Authentication and encrypted network communication
+- Continuous integration and automated releases
+- Graphical monitoring and control interface
 
 ## Motivation
 
 I am building this project to develop practical skills in modern C++, hardware
-communication, and automated testing.
+communication, networking, concurrency, automated testing, and software
+architecture.
 
 ## Requirements
 
@@ -31,6 +49,14 @@ communication, and automated testing.
 - Ninja
 - Git
 - nlohmann/json 3.11 or newer
+- POSIX sockets and threads
+
+Install the required Ubuntu packages with:
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake ninja-build git nlohmann-json3-dev
+```
 
 ## Build
 
@@ -40,13 +66,19 @@ Configure the project with CMake and Ninja:
 cmake -S . -B build -G Ninja
 ```
 
-Compile the application and tests:
+Compile the application, server, client, and tests:
 
 ```bash
 cmake --build build
 ```
 
-## Run
+For a clean rebuild:
+
+```bash
+cmake --build build --clean-first
+```
+
+## Local command-line application
 
 Start the interactive command-line shell:
 
@@ -66,10 +98,23 @@ Available commands:
 | `run <file>` | Load and execute a JSON test procedure |
 | `exit` | Exit the application |
 
-## Distributed TCP operation
+Example:
 
-The project includes a TCP server and command-line client. The server listens
-only on the local loopback interface at `127.0.0.1:5050`.
+```text
+Hardware Test Platform version 0.1.0
+hwtest> relay on
+Relay state: on
+hwtest> relay status
+Relay state: on
+hwtest> relay off
+Relay state: off
+hwtest> exit
+Shutting down the hardware test platform project.
+```
+
+## TCP client and server
+
+The TCP server listens on `127.0.0.1:5050`.
 
 Start the server in one terminal:
 
@@ -80,12 +125,13 @@ Start the server in one terminal:
 Send commands from another terminal:
 
 ```bash
+./build/hwtest_client status
 ./build/hwtest_client relay on
 ./build/hwtest_client relay status
 ./build/hwtest_client relay off
 ```
 
-Run a JSON-defined test procedure remotely:
+Execute a JSON procedure remotely:
 
 ```bash
 ./build/hwtest_client run procedures/relay_smoke_test.json
@@ -97,15 +143,12 @@ Stop the server cleanly:
 ./build/hwtest_client exit
 ```
 
-The server preserves simulated device state across separate client connections.
-Multiple clients can connect concurrently. A mutex protects shared hardware state
-and prevents concurrent command execution from causing C++ data races.
+The server preserves the simulated relay state between client connections and
+handles multiple client connections concurrently.
 
 ## Network protocol
 
-The client and server exchange newline-delimited JSON messages over TCP. A
-newline identifies the end of each message because TCP transports an unstructured
-stream of bytes rather than preserving application message boundaries.
+The client and server exchange newline-delimited JSON messages over TCP.
 
 Example request:
 
@@ -126,73 +169,25 @@ Example response:
 }
 ```
 
-The protocol validates required fields and JSON types before executing commands.
-Responses repeat the request identifier so clients can associate responses with
-their requests.
-
-The shared transport layer handles partial sends, interrupted system calls,
-peer disconnection, newline framing, and a 64 KiB maximum message size.
-
-## Test
-
-Run all automated tests:
-
-```bash
-ctest --test-dir build --output-on-failure
-```
+The response request ID allows a client to verify that the response belongs to
+its request.
 
 ## JSON test procedures
 
-Test procedures define an ordered sequence of deterministic hardware actions and
-expectations. Each procedure contains a name and a list of steps that the
-execution engine processes in order.
+Test procedures define an ordered sequence of hardware actions and
+expectations. Each procedure contains a name and a list of steps.
 
-Run the included relay smoke test from the command-line shell:
+Run the included relay smoke test from the local shell:
 
 ```text
 run procedures/relay_smoke_test.json
 ```
 
-A procedure has the following structure:
+Or run it through the TCP client:
 
-```json
-{
-    "name": "Relay smoke test",
-    "steps": [
-        {
-            "name": "Switch relay on",
-            "action": "relay_on",
-            "timeout_ms": 500
-        },
-        {
-            "name": "Verify relay on",
-            "action": "expect_relay_on",
-            "retries": 2,
-            "timeout_ms": 500
-        },
-        {
-            "name": "Switch relay off",
-            "action": "relay_off",
-            "timeout_ms": 500
-        },
-        {
-            "name": "Verify relay off",
-            "action": "expect_relay_off",
-            "retries": 2,
-            "timeout_ms": 500
-        }
-    ]
-}
+```bash
+./build/hwtest_client run procedures/relay_smoke_test.json
 ```
-
-Each step contains:
-
-| Field | Required | Description |
-| --- | --- | --- |
-| `name` | Yes | Human-readable name shown in test output |
-| `action` | Yes | Deterministic hardware action or expectation |
-| `retries` | No | Number of additional attempts after failure |
-| `timeout_ms` | No | Maximum duration of each attempt in milliseconds |
 
 Supported actions:
 
@@ -203,83 +198,234 @@ Supported actions:
 | `expect_relay_on` | Fail if the relay is off |
 | `expect_relay_off` | Fail if the relay is on |
 
-Reliability fields use these defaults:
+Each step may also contain:
 
-| Field | Default | Validation |
-| --- | --- | --- |
-| `retries` | `0` | Must be a non-negative integer |
-| `timeout_ms` | `1000` | Must be a positive integer |
+| Property | Description |
+| --- | --- |
+| `retries` | Number of additional attempts after the first failure |
+| `timeout_ms` | Maximum permitted step duration in milliseconds |
 
-For example, the following step has one initial attempt and up to two additional
-retry attempts. Every attempt has a 500-millisecond deadline:
+Example procedure:
 
 ```json
 {
-    "name": "Verify relay on",
-    "action": "expect_relay_on",
-    "retries": 2,
-    "timeout_ms": 500
+    "name": "Relay smoke test",
+    "steps": [
+        {
+            "name": "Switch relay on",
+            "action": "relay_on"
+        },
+        {
+            "name": "Verify relay on",
+            "action": "expect_relay_on",
+            "retries": 2,
+            "timeout_ms": 500
+        },
+        {
+            "name": "Switch relay off",
+            "action": "relay_off"
+        },
+        {
+            "name": "Verify relay off",
+            "action": "expect_relay_off"
+        }
+    ]
 }
 ```
 
-The JSON loader validates procedure names, step names, actions, retry counts, and
-timeouts before execution. Invalid files are rejected with a descriptive error
-instead of being partially executed.
+When `retries` is omitted, it defaults to `0`. When `timeout_ms` is omitted, it
+defaults to `1000` milliseconds.
 
-## Execution reliability
+## Reliable test execution
 
-The execution engine returns a structured result containing:
+The test executor processes procedure steps in order and produces a structured
+result.
 
-- Overall pass or failure status
-- Number of successfully completed steps
-- Name of the failed step, when applicable
-- Human-readable result details
-- Cancellation status
+Execution features include:
 
-When a step fails and still has available retries, the executor performs another
-attempt. For example, a retry value of `2` permits three total attempts:
+- Retry handling for failed steps
+- Step timeout detection
+- Cooperative cancellation
+- Completed-step tracking
+- Failed-step identification
+- Overall procedure duration
+- Per-step duration and attempt counts
+- Diagnostic result messages
+
+A failed step is not counted as completed. If all configured attempts fail, the
+procedure stops and returns a failed result.
+
+Cancellation is cooperative: the executor checks the cancellation request
+between operations and stops safely when cancellation is requested.
+
+## Structured logging
+
+The TCP server writes timestamped log messages to:
 
 ```text
-Attempt 1: initial attempt
-Attempt 2: first retry
-Attempt 3: second retry
+logs/hwtest-server.log
 ```
 
-Every attempt is measured using C++'s monotonic clock. If an attempt takes longer
-than its configured `timeout_ms`, the step fails with a timeout result.
+Each entry contains a UTC timestamp, severity level, and message:
 
-Cancellation is cooperative and thread-safe. The executor checks an atomic
-cancellation signal:
+```text
+2026-09-24T10:59:55Z [INFO] Executing command: relay status
+```
 
-- Before starting a step
-- Before starting each retry attempt
-- After a synchronous device operation returns
+Supported log levels include:
 
-The current timeout mechanism detects an exceeded deadline after a synchronous
-device operation returns. It does not forcibly terminate an active hardware
-operation. This avoids leaving a background operation accessing hardware through
-an object that may no longer exist.
+- `INFO`
+- `WARNING`
+- `ERROR`
+
+The logger is thread-safe, allowing concurrent TCP client threads to write
+complete log entries without corrupting the log file.
+
+The `logs/` directory contains generated runtime data and is not committed to
+Git.
+
+## JSON test reports
+
+Running a JSON test procedure automatically creates a machine-readable report:
+
+```text
+hwtest> run procedures/relay_smoke_test.json
+Running procedure: Relay smoke test
+Step: Switch relay on
+Step: Verify relay on
+Step: Switch relay off
+Step: Verify relay off
+Result: PASS
+Report written: reports/relay_smoke_test-<timestamp>.json
+```
+
+The same report generation occurs when a procedure is executed remotely through
+the TCP client.
+
+Every report contains:
+
+- Procedure name
+- Overall `PASS`, `FAIL`, or `CANCELLED` status
+- Number of completed steps
+- Total procedure duration
+- Failed-step name when applicable
+- Overall diagnostic message
+- Per-step status
+- Per-step attempt count
+- Per-step duration
+- Per-step diagnostic message
+
+Example report:
+
+```json
+{
+    "completed_steps": 4,
+    "duration_ms": 0,
+    "failed_step": null,
+    "message": "All steps passed",
+    "procedure": "Relay smoke test",
+    "status": "PASS",
+    "steps": [
+        {
+            "attempts": 1,
+            "duration_ms": 0,
+            "message": "Step passed",
+            "name": "Switch relay on",
+            "status": "PASS"
+        }
+    ]
+}
+```
+
+Report filenames contain timestamps so multiple executions do not overwrite
+one another.
+
+Generated reports are stored in `reports/`. This directory is not committed to
+Git.
+
+A duration of `0` milliseconds is valid when a simulated operation completes
+faster than the clock's millisecond resolution.
+
+## Test
+
+Run all automated tests:
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+The test suite covers:
+
+- Command processing
+- Simulated relay state transitions
+- Test procedure models
+- JSON procedure parsing and validation
+- Retry and timeout behavior
+- Cooperative cancellation
+- Detailed execution results
+- JSON report serialization and file writing
+- Structured logger behavior
+- Concurrent logger writes
+- Network protocol serialization
+- Newline-delimited message framing
+- TCP transport
+- Concurrent TCP clients
+- Remote JSON procedure execution
+- Automatic remote report generation
 
 ## Architecture
 
 The command shell depends on the `IRelay` interface rather than a specific
-hardware implementation. The current `SimulatedRelay` driver provides
-deterministic in-memory behavior for development and automated testing.
+hardware implementation. The current `SimulatedRelay` provides deterministic
+in-memory behavior for development and automated testing.
 
 Future physical relay drivers can implement the same interface without changing
-the command-processing logic.
+the command-processing or test-execution logic.
 
-The TCP server converts network requests into the same command-processing calls
-used by the local CLI. This keeps networking separate from device-control and
-test-execution logic.
+The test executor is separated from JSON parsing and report generation:
 
-Each accepted client is handled by a separate C++ thread. Network reception and
-response transmission can therefore proceed concurrently, while a mutex
-serializes access to the shared relay and test engine.
+```text
+JSON procedure
+      |
+      v
+Procedure parser
+      |
+      v
+TestProcedure model
+      |
+      v
+Test executor -----> IRelay -----> SimulatedRelay
+      |
+      v
+TestResult
+      |
+      v
+JSON report
+```
 
-The current server is a local development implementation. It uses a fixed
-loopback address and port, processes one request per connection, and does not yet
-provide authentication or encryption.
+The distributed command path is:
+
+```text
+TCP client
+    |
+    v
+JSON request
+    |
+    v
+Newline-delimited TCP transport
+    |
+    v
+Concurrent TCP server
+    |
+    v
+Command shell
+    |
+    +-----> Simulated relay
+    |
+    +-----> Test executor
+    |
+    +-----> JSON report
+```
 
 ## Project structure
 
@@ -290,6 +436,8 @@ provide authentication or encryption.
 ├── src/
 │   ├── command_shell.cpp
 │   ├── command_shell.h
+│   ├── logger.cpp
+│   ├── logger.h
 │   ├── main.cpp
 │   ├── network_framing.cpp
 │   ├── network_framing.h
@@ -308,9 +456,12 @@ provide authentication or encryption.
 │   ├── test_procedure.h
 │   ├── test_procedure_json.cpp
 │   ├── test_procedure_json.h
+│   ├── test_report_json.cpp
+│   ├── test_report_json.h
 │   └── test_result.h
 ├── tests/
 │   ├── command_shell_tests.cpp
+│   ├── logger_tests.cpp
 │   ├── network_framing_tests.cpp
 │   ├── network_protocol_tests.cpp
 │   ├── simulated_relay_tests.cpp
@@ -318,8 +469,19 @@ provide authentication or encryption.
 │   ├── tcp_transport_tests.cpp
 │   ├── test_executor_tests.cpp
 │   ├── test_procedure_json_tests.cpp
-│   └── test_procedure_tests.cpp
+│   ├── test_procedure_tests.cpp
+│   ├── test_report_json_tests.cpp
+│   └── test_result_tests.cpp
 ├── CMakeLists.txt
 ├── README.md
 └── .gitignore
 ```
+
+## Milestones
+
+- Milestone 1: Project foundation and interactive command shell
+- Milestone 2: Hardware abstraction and simulated relay
+- Milestone 3: JSON-defined test procedures
+- Milestone 4: Reliable execution, retries, timeouts, and cancellation
+- Milestone 5: Concurrent TCP client/server communication
+- Milestone 6: Structured logging and machine-readable test reports
