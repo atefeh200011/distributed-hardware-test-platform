@@ -301,3 +301,27 @@ add_test(
     NAME logger
     COMMAND logger_tests
 )
+add_executable(test_report_json_tests
+    tests/test_report_json_tests.cpp
+    src/test_report_json.cpp
+)
+
+target_compile_features(test_report_json_tests PRIVATE cxx_std_20)
+
+target_compile_options(test_report_json_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(test_report_json_tests PRIVATE src)
+
+target_link_libraries(
+    test_report_json_tests
+    PRIVATE nlohmann_json::nlohmann_json
+)
+
+add_test(
+    NAME test_report_json
+    COMMAND test_report_json_tests
+)
