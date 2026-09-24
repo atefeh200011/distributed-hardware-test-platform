@@ -258,6 +258,25 @@ add_test(
     NAME tcp_transport
     COMMAND tcp_transport_tests
 )
+
+add_executable(test_result_tests
+    tests/test_result_tests.cpp
+)
+
+target_compile_features(test_result_tests PRIVATE cxx_std_20)
+
+target_compile_options(test_result_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(test_result_tests PRIVATE src)
+
+add_test(
+    NAME test_result_model
+    COMMAND test_result_tests
+)
 add_executable(logger_tests
     tests/logger_tests.cpp
     src/logger.cpp
