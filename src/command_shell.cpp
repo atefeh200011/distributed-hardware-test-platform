@@ -1,6 +1,37 @@
 #include "test_executor.h"
 #include "test_procedure_json.h"
 #include "command_shell.h"
+#include "test_report_json.h"
+
+#include <chrono>
+#include <filesystem>
+
+namespace
+{
+std::string create_report_path(
+    const std::string& procedure_file)
+{
+    const auto timestamp =
+        std::chrono::duration_cast<
+            std::chrono::milliseconds>(
+            std::chrono::system_clock::now()
+                .time_since_epoch())
+                .count();
+
+    const std::filesystem::path procedure_path(
+        procedure_file);
+
+    const std::string report_name =
+        procedure_path.stem().string() +
+        "-" +
+        std::to_string(timestamp) +
+        ".json";
+
+    return (
+        std::filesystem::path("reports") /
+        report_name).string();
+}
+}
 
 void print_help(std::ostream& output)
 {
@@ -57,7 +88,8 @@ bool handle_command(
 
     else if (command.starts_with("run "))
     {
-        const std::string file_path = command.substr(4);
+        const std::string file_path =
+            command.substr(4);
 
         TestProcedure procedure;
         std::string error_message;
@@ -67,12 +99,39 @@ bool handle_command(
                 procedure,
                 error_message) == false)
         {
-            output << "Failed to load procedure: "
-                << error_message << '\n';
+            output
+                << "Failed to load procedure: "
+                << error_message
+                << '\n';
             return true;
         }
 
-        execute_procedure(procedure, relay, output);
+        const TestResult result =
+            execute_procedure(
+                procedure,
+                relay,
+                output);
+
+        const std::string report_path =
+            create_report_path(file_path);
+
+        if (write_test_report_file(
+                report_path,
+                result,
+                error_message) == false)
+        {
+            output
+                << "Failed to write report: "
+                << error_message
+                << '\n';
+            return true;
+        }
+
+        output
+            << "Report written: "
+            << report_path
+            << '\n';
+
         return true;
     }
     else if (command == "status")

@@ -112,15 +112,53 @@ expected_procedure_output=$(
         "Result: PASS"
 )
 
-if [[ "${procedure_output}" != "${expected_procedure_output}" ]]
+procedure_result_output="$(
+    printf '%s\n' "${procedure_output}" |
+        head -n 6
+)"
+
+report_line="$(
+    printf '%s\n' "${procedure_output}" |
+        tail -n 1
+)"
+
+if [[ "${procedure_result_output}" != "${expected_procedure_output}" ]]
 then
     echo "FAIL: remote JSON procedure output is incorrect"
     echo "Expected:"
     echo "${expected_procedure_output}"
     echo "Actual:"
-    echo "${procedure_output}"
+    echo "${procedure_result_output}"
     exit 1
 fi
+
+if [[ ! "${report_line}" =~ \
+^Report\ written:\ reports/.+\.json$ ]]
+then
+    echo "FAIL: remote procedure report path is incorrect"
+    echo "Actual: ${report_line}"
+    exit 1
+fi
+
+report_path="${report_line#Report written: }"
+
+if [[ ! -f "${report_path}" ]]
+then
+    echo "FAIL: remote procedure report file does not exist"
+    echo "Expected file: ${report_path}"
+    exit 1
+fi
+
+if grep -q '"status": "PASS"' "${report_path}"
+then
+    :
+else
+    echo "FAIL: generated remote report does not contain PASS status"
+    cat "${report_path}"
+    exit 1
+fi
+
+rm -f "${report_path}"
 
 procedure_final_state="$(
     "${client_executable}" relay status

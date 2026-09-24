@@ -7,3 +7,6 @@ cmake-build-*/
 
 # Generated logs
 *.log : 
+
+# Generated test reports
+reports/
