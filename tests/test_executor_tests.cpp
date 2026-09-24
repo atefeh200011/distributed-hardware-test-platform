@@ -103,6 +103,39 @@ int main()
         std::cerr << "FAIL: passing result message is incorrect\n";
         return 1;
     }
+    if (result.procedure_name != "Relay smoke test")
+    {
+        std::cerr << "FAIL: result procedure name is incorrect\n";
+        return 1;
+    }
+
+    if (result.steps.size() != 4)
+    {
+        std::cerr << "FAIL: four step results were expected\n";
+        return 1;
+    }
+
+    for (const StepResult& step_result : result.steps)
+    {
+        if (step_result.passed == false)
+        {
+            std::cerr << "FAIL: every smoke-test step should pass\n";
+            return 1;
+        }
+
+        if (step_result.attempts != 1)
+        {
+            std::cerr
+                << "FAIL: each smoke-test step should use one attempt\n";
+            return 1;
+        }
+
+        if (step_result.duration_ms < 0)
+        {
+            std::cerr << "FAIL: step duration cannot be negative\n";
+            return 1;
+        }
+    }
 
     if (relay.is_on())
     {
@@ -210,6 +243,35 @@ int main()
             << "FAIL: exhausted step should not be completed\n";
         return 1;
     }
+    if (retry_failure_result.steps.size() != 1)
+    {
+        std::cerr
+            << "FAIL: retry failure should contain one step result\n";
+        return 1;
+    }
+
+    const StepResult& exhausted_step =
+        retry_failure_result.steps.front();
+
+    if (exhausted_step.passed)
+    {
+        std::cerr << "FAIL: exhausted step should fail\n";
+        return 1;
+    }
+
+    if (exhausted_step.attempts != 3)
+    {
+        std::cerr
+            << "FAIL: two retries should produce three attempts\n";
+        return 1;
+    }
+
+    if (exhausted_step.message != "Expected relay to be on")
+    {
+        std::cerr
+            << "FAIL: exhausted-step message is incorrect\n";
+        return 1;
+    }
 
     const std::string expected_retry_failure_output =
         "Running procedure: Retry failure test\n"
@@ -260,6 +322,29 @@ int main()
     {
         std::cerr
             << "FAIL: recovered step should be completed\n";
+        return 1;
+    }
+
+    if (retry_success_result.steps.size() != 1)
+    {
+        std::cerr
+            << "FAIL: retry recovery should contain one step result\n";
+        return 1;
+    }
+
+    const StepResult& recovered_step =
+        retry_success_result.steps.front();
+
+    if (recovered_step.passed == false)
+    {
+        std::cerr << "FAIL: recovered step should pass\n";
+        return 1;
+    }
+
+    if (recovered_step.attempts != 2)
+    {
+        std::cerr
+            << "FAIL: recovered step should use two attempts\n";
         return 1;
     }
 
@@ -318,6 +403,35 @@ int main()
     {
         std::cerr
             << "FAIL: timed-out step should not be completed\n";
+        return 1;
+    }
+    if (timeout_result.steps.size() != 1)
+    {
+        std::cerr
+            << "FAIL: timeout should contain one step result\n";
+        return 1;
+    }
+
+    const StepResult& timed_out_step =
+        timeout_result.steps.front();
+
+    if (timed_out_step.passed)
+    {
+        std::cerr << "FAIL: timed-out step should fail\n";
+        return 1;
+    }
+
+    if (timed_out_step.attempts != 1)
+    {
+        std::cerr
+            << "FAIL: timed-out step should use one attempt\n";
+        return 1;
+    }
+
+    if (timed_out_step.duration_ms < 1)
+    {
+        std::cerr
+            << "FAIL: timed-out step duration is too short\n";
         return 1;
     }
 

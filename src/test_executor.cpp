@@ -1,7 +1,9 @@
 #include "test_executor.h"
 
 #include <chrono>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -47,6 +49,18 @@ bool execute_step(
     failure_message = "Unsupported test action";
     return false;
 }
+
+std::int64_t elapsed_milliseconds(
+    std::chrono::steady_clock::time_point start_time)
+{
+    const auto elapsed =
+        std::chrono::duration_cast<
+            std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() -
+            start_time);
+
+    return elapsed.count();
+}
 }
 
 TestResult execute_procedure(
@@ -55,13 +69,16 @@ TestResult execute_procedure(
     std::ostream& output,
     const std::atomic_bool* cancellation_requested)
 {
+    const auto procedure_start_time =
+        std::chrono::steady_clock::now();
+
     output << "Running procedure: " << procedure.name << '\n';
 
     std::size_t completed_steps = 0;
+    std::vector<StepResult> step_results;
 
     for (const TestStep& step : procedure.steps)
     {
-        // Check before starting the next step.
         if (cancellation_requested != nullptr &&
             cancellation_requested->load())
         {
@@ -72,15 +89,22 @@ TestResult execute_procedure(
                 completed_steps,
                 std::nullopt,
                 "Procedure cancelled",
-                true
+                true,
+                procedure.name,
+                elapsed_milliseconds(procedure_start_time),
+                step_results
             };
         }
 
         output << "Step: " << step.name << '\n';
 
+        const auto step_start_time =
+            std::chrono::steady_clock::now();
+
         const std::size_t maximum_attempts =
             step.retries + 1;
 
+        std::size_t attempts_used = 0;
         bool step_passed = false;
         std::string failure_message;
 
@@ -88,55 +112,86 @@ TestResult execute_procedure(
              attempt <= maximum_attempts;
              ++attempt)
         {
-            // Check before beginning an attempt.
             if (cancellation_requested != nullptr &&
                 cancellation_requested->load())
             {
+                const std::string cancellation_message =
+                    "Procedure cancelled";
+
+                step_results.push_back(
+                    StepResult{
+                        step.name,
+                        false,
+                        attempts_used,
+                        elapsed_milliseconds(step_start_time),
+                        cancellation_message
+                    });
+
                 output << "Result: CANCELLED\n";
 
                 return TestResult{
                     false,
                     completed_steps,
                     step.name,
-                    "Procedure cancelled",
-                    true
+                    cancellation_message,
+                    true,
+                    procedure.name,
+                    elapsed_milliseconds(
+                        procedure_start_time),
+                    step_results
                 };
             }
 
+            ++attempts_used;
             failure_message.clear();
 
-            const auto start_time =
+            const auto attempt_start_time =
                 std::chrono::steady_clock::now();
 
             const bool attempt_passed =
                 execute_step(step, relay, failure_message);
 
-            const auto end_time =
+            const auto attempt_end_time =
                 std::chrono::steady_clock::now();
 
-            // Check whether cancellation was requested while
-            // the synchronous relay operation was executing.
             if (cancellation_requested != nullptr &&
                 cancellation_requested->load())
             {
+                const std::string cancellation_message =
+                    "Procedure cancelled";
+
+                step_results.push_back(
+                    StepResult{
+                        step.name,
+                        false,
+                        attempts_used,
+                        elapsed_milliseconds(step_start_time),
+                        cancellation_message
+                    });
+
                 output << "Result: CANCELLED\n";
 
                 return TestResult{
                     false,
                     completed_steps,
                     step.name,
-                    "Procedure cancelled",
-                    true
+                    cancellation_message,
+                    true,
+                    procedure.name,
+                    elapsed_milliseconds(
+                        procedure_start_time),
+                    step_results
                 };
             }
 
-            const auto elapsed_time =
+            const auto attempt_duration =
                 std::chrono::duration_cast<
                     std::chrono::milliseconds>(
-                    end_time - start_time);
+                    attempt_end_time -
+                    attempt_start_time);
 
             const bool timed_out =
-                elapsed_time >
+                attempt_duration >
                 std::chrono::milliseconds(step.timeout_ms);
 
             if (timed_out)
@@ -165,8 +220,20 @@ TestResult execute_procedure(
             }
         }
 
+        const std::int64_t step_duration_ms =
+            elapsed_milliseconds(step_start_time);
+
         if (step_passed == false)
         {
+            step_results.push_back(
+                StepResult{
+                    step.name,
+                    false,
+                    attempts_used,
+                    step_duration_ms,
+                    failure_message
+                });
+
             output << "Result: FAIL\n";
 
             return TestResult{
@@ -174,9 +241,21 @@ TestResult execute_procedure(
                 completed_steps,
                 step.name,
                 failure_message,
-                false
+                false,
+                procedure.name,
+                elapsed_milliseconds(procedure_start_time),
+                step_results
             };
         }
+
+        step_results.push_back(
+            StepResult{
+                step.name,
+                true,
+                attempts_used,
+                step_duration_ms,
+                "Step passed"
+            });
 
         ++completed_steps;
     }
@@ -188,6 +267,9 @@ TestResult execute_procedure(
         completed_steps,
         std::nullopt,
         "All steps passed",
-        false
+        false,
+        procedure.name,
+        elapsed_milliseconds(procedure_start_time),
+        step_results
     };
 }
