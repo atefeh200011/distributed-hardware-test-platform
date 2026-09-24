@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
-
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <nlohmann/json.hpp>
 
 #include "test_report_json.h"
@@ -87,6 +89,67 @@ int main()
     if (report["steps"][1]["status"] != "PASS")
     {
         std::cerr << "FAIL: step status is incorrect\n";
+        return 1;
+    }
+    const std::filesystem::path report_directory =
+        "test-report-output";
+
+    const std::filesystem::path report_path =
+        report_directory / "relay-report.json";
+
+    std::error_code cleanup_error;
+    std::filesystem::remove_all(
+        report_directory,
+        cleanup_error);
+
+    std::string write_error;
+
+    if (write_test_report_file(
+            report_path.string(),
+            result,
+            write_error) == false)
+    {
+        std::cerr << "FAIL: report file could not be written\n";
+        std::cerr << "Error: " << write_error << '\n';
+        return 1;
+    }
+
+    std::ifstream report_file(report_path);
+
+    if (report_file.is_open() == false)
+    {
+        std::cerr << "FAIL: generated report could not be opened\n";
+        return 1;
+    }
+
+    std::ostringstream report_file_text;
+    report_file_text << report_file.rdbuf();
+
+    const nlohmann::json file_report =
+        nlohmann::json::parse(report_file_text.str());
+
+    if (file_report["procedure"] != "Relay report test")
+    {
+        std::cerr
+            << "FAIL: generated report procedure is incorrect\n";
+        return 1;
+    }
+
+    if (file_report["steps"].size() != 2)
+    {
+        std::cerr
+            << "FAIL: generated report step count is incorrect\n";
+        return 1;
+    }
+
+    std::filesystem::remove_all(
+        report_directory,
+        cleanup_error);
+
+    if (cleanup_error)
+    {
+        std::cerr
+            << "FAIL: temporary report directory was not removed\n";
         return 1;
     }
 
