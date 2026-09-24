@@ -257,3 +257,27 @@ add_test(
     NAME tcp_transport
     COMMAND tcp_transport_tests
 )
+add_executable(logger_tests
+    tests/logger_tests.cpp
+    src/logger.cpp
+)
+
+target_compile_features(logger_tests PRIVATE cxx_std_20)
+
+target_compile_options(logger_tests PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)
+
+target_include_directories(logger_tests PRIVATE src)
+
+target_link_libraries(
+    logger_tests
+    PRIVATE Threads::Threads
+)
+
+add_test(
+    NAME logger
+    COMMAND logger_tests
+)
