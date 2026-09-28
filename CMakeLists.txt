@@ -327,6 +327,7 @@ add_test(
         $<TARGET_FILE:hwtest_server>
         $<TARGET_FILE:hwtest_client>
         ${CMAKE_CURRENT_SOURCE_DIR}/procedures/relay_smoke_test.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/procedures/multi_relay_test.json
 )
 
 set_tests_properties(

@@ -5,6 +5,7 @@ set -euo pipefail
 server_executable="$1"
 client_executable="$2"
 procedure_file="$3"
+multi_procedure_file="$4"
 
 temporary_directory="$(mktemp -d)"
 server_log="${temporary_directory}/server.log"
@@ -257,6 +258,107 @@ then
     echo "Actual: ${relay_2_off_output}"
     exit 1
 fi
+
+multi_procedure_output="$(
+    "${client_executable}" run "${multi_procedure_file}"
+)"
+
+expected_multi_procedure_output=$(
+    printf '%s\n' \
+        "Running procedure: Multi-relay independence test" \
+        "Step: Switch first relay on" \
+        "Step: Switch second relay on" \
+        "Step: Verify first relay on" \
+        "Step: Verify second relay on" \
+        "Step: Switch first relay off" \
+        "Step: Verify first relay off" \
+        "Step: Verify second relay remains on" \
+        "Step: Switch second relay off" \
+        "Step: Verify second relay off" \
+        "Result: PASS"
+)
+
+multi_procedure_result_output="$(
+    printf '%s\n' "${multi_procedure_output}" |
+        head -n 11
+)"
+
+multi_report_line="$(
+    printf '%s\n' "${multi_procedure_output}" |
+        tail -n 1
+)"
+
+if [[ "${multi_procedure_result_output}" != \
+      "${expected_multi_procedure_output}" ]]
+then
+    echo "FAIL: remote multi-relay procedure output is incorrect"
+    echo "Expected:"
+    echo "${expected_multi_procedure_output}"
+    echo "Actual:"
+    echo "${multi_procedure_result_output}"
+    exit 1
+fi
+
+if [[ ! "${multi_report_line}" =~ ^Report\ written:\ reports/.+\.json$ ]]
+then
+    echo "FAIL: multi-relay report path is incorrect"
+    echo "Actual: ${multi_report_line}"
+    exit 1
+fi
+multi_report_path="${multi_report_line#Report written: }"
+
+if [[ ! -f "${multi_report_path}" ]]
+then
+    echo "FAIL: multi-relay report file does not exist"
+    echo "Expected file: ${multi_report_path}"
+    exit 1
+fi
+
+if ! grep -q '"status": "PASS"' "${multi_report_path}"
+then
+    echo "FAIL: multi-relay report does not contain PASS status"
+    cat "${multi_report_path}"
+    exit 1
+fi
+
+if ! grep -q \
+    '"procedure": "Multi-relay independence test"' \
+    "${multi_report_path}"
+then
+    echo "FAIL: multi-relay report has incorrect procedure name"
+    cat "${multi_report_path}"
+    exit 1
+fi
+
+rm -f "${multi_report_path}"
+
+relay_1_after_multi="$(
+    "${client_executable}" relay relay-1 status
+)"
+
+if [[ "${relay_1_after_multi}" != \
+      "Relay relay-1 state: off" ]]
+then
+    echo "FAIL: multi-relay procedure should leave relay-1 off"
+    echo "Actual: ${relay_1_after_multi}"
+    exit 1
+fi
+
+relay_2_after_multi="$(
+    "${client_executable}" relay relay-2 status
+)"
+
+if [[ "${relay_2_after_multi}" != \
+      "Relay relay-2 state: off" ]]
+then
+    echo "FAIL: multi-relay procedure should leave relay-2 off"
+    echo "Actual: ${relay_2_after_multi}"
+    exit 1
+fi
+
+multi_report_path="${multi_report_line#Report written: }"
+
+
 
 missing_relay_output="$(
     "${client_executable}" relay missing status

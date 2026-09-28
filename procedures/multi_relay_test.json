@@ -1,0 +1,59 @@
+{
+    "name": "Multi-relay independence test",
+    "steps": [
+        {
+            "name": "Switch first relay on",
+            "device": "relay-1",
+            "action": "relay_on",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Switch second relay on",
+            "device": "relay-2",
+            "action": "relay_on",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Verify first relay on",
+            "device": "relay-1",
+            "action": "expect_relay_on",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Verify second relay on",
+            "device": "relay-2",
+            "action": "expect_relay_on",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Switch first relay off",
+            "device": "relay-1",
+            "action": "relay_off",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Verify first relay off",
+            "device": "relay-1",
+            "action": "expect_relay_off",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Verify second relay remains on",
+            "device": "relay-2",
+            "action": "expect_relay_on",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Switch second relay off",
+            "device": "relay-2",
+            "action": "relay_off",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Verify second relay off",
+            "device": "relay-2",
+            "action": "expect_relay_off",
+            "timeout_ms": 500
+        }
+    ]
+}
