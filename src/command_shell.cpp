@@ -35,9 +35,10 @@ std::string create_report_path(
         report_name).string();
 }
 
+template <typename RelaySource>
 bool execute_procedure_file(
     const std::string& file_path,
-    IRelay& relay,
+    RelaySource& relay_source,
     std::ostream& output)
 {
     TestProcedure procedure;
@@ -58,7 +59,7 @@ bool execute_procedure_file(
     const TestResult result =
         execute_procedure(
             procedure,
-            relay,
+            relay_source,
             output);
 
     const std::string report_path =
@@ -219,30 +220,25 @@ bool handle_command(
             return true;
         }
 
-        output << "Unknown command: " << command << '\n';
+        output
+            << "Unknown command: "
+            << command
+            << '\n';
         return true;
     }
 
     if (command.starts_with("run "))
     {
-        IRelay* default_relay =
-            relays.find("relay-1");
-
-        if (default_relay == nullptr)
-        {
-            output
-                << "Cannot run procedure: "
-                << "default relay relay-1 is not registered\n";
-            return true;
-        }
-
         return execute_procedure_file(
             command.substr(4),
-            *default_relay,
+            relays,
             output);
     }
 
-    output << "Unknown command: " << command << '\n';
+    output
+        << "Unknown command: "
+        << command
+        << '\n';
     return true;
 }
 
@@ -302,6 +298,9 @@ bool handle_command(
             output);
     }
 
-    output << "Unknown command: " << command << '\n';
+    output
+        << "Unknown command: "
+        << command
+        << '\n';
     return true;
 }

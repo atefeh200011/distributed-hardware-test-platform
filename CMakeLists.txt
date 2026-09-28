@@ -91,6 +91,7 @@ add_executable(test_executor_tests
     tests/test_executor_tests.cpp
     src/simulated_relay.cpp
     src/test_executor.cpp
+    src/relay_registry.cpp
 )
 
 target_compile_features(test_executor_tests PRIVATE cxx_std_20)
@@ -106,6 +107,35 @@ target_include_directories(test_executor_tests PRIVATE src)
 add_test(
     NAME test_executor
     COMMAND test_executor_tests
+)
+add_executable(test_executor_registry_tests
+    tests/test_executor_registry_tests.cpp
+    src/test_executor.cpp
+    src/relay_registry.cpp
+    src/simulated_relay.cpp
+)
+
+target_compile_features(
+    test_executor_registry_tests
+    PRIVATE cxx_std_20
+)
+
+target_compile_options(
+    test_executor_registry_tests
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
+target_include_directories(
+    test_executor_registry_tests
+    PRIVATE src
+)
+
+add_test(
+    NAME test_executor_registry
+    COMMAND test_executor_registry_tests
 )
 
 add_executable(test_procedure_json_tests

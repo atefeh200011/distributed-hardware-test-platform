@@ -2,11 +2,15 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
 namespace
 {
+using RelayResolver =
+    std::function<IRelay*(const TestStep&)>;
+
 bool execute_step(
     const TestStep& step,
     IRelay& relay,
@@ -28,25 +32,29 @@ bool execute_step(
     {
         if (relay.is_on() == false)
         {
-            failure_message = "Expected relay to be on";
+            failure_message =
+                "Expected relay to be on";
             return false;
         }
 
         return true;
     }
 
-    if (step.action == TestAction::expect_relay_off)
+    if (step.action ==
+        TestAction::expect_relay_off)
     {
         if (relay.is_on())
         {
-            failure_message = "Expected relay to be off";
+            failure_message =
+                "Expected relay to be off";
             return false;
         }
 
         return true;
     }
 
-    failure_message = "Unsupported test action";
+    failure_message =
+        "Unsupported test action";
     return false;
 }
 
@@ -61,18 +69,20 @@ std::int64_t elapsed_milliseconds(
 
     return elapsed.count();
 }
-}
 
-TestResult execute_procedure(
+TestResult execute_procedure_with_resolver(
     const TestProcedure& procedure,
-    IRelay& relay,
+    const RelayResolver& resolve_relay,
     std::ostream& output,
     const std::atomic_bool* cancellation_requested)
 {
     const auto procedure_start_time =
         std::chrono::steady_clock::now();
 
-    output << "Running procedure: " << procedure.name << '\n';
+    output
+        << "Running procedure: "
+        << procedure.name
+        << '\n';
 
     std::size_t completed_steps = 0;
     std::vector<StepResult> step_results;
@@ -91,15 +101,53 @@ TestResult execute_procedure(
                 "Procedure cancelled",
                 true,
                 procedure.name,
-                elapsed_milliseconds(procedure_start_time),
+                elapsed_milliseconds(
+                    procedure_start_time),
                 step_results
             };
         }
 
-        output << "Step: " << step.name << '\n';
+        output
+            << "Step: "
+            << step.name
+            << '\n';
 
         const auto step_start_time =
             std::chrono::steady_clock::now();
+
+        IRelay* relay =
+            resolve_relay(step);
+
+        if (relay == nullptr)
+        {
+            const std::string failure_message =
+                "Relay not found: " +
+                step.device;
+
+            step_results.push_back(
+                StepResult{
+                    step.name,
+                    false,
+                    0,
+                    elapsed_milliseconds(
+                        step_start_time),
+                    failure_message
+                });
+
+            output << "Result: FAIL\n";
+
+            return TestResult{
+                false,
+                completed_steps,
+                step.name,
+                failure_message,
+                false,
+                procedure.name,
+                elapsed_milliseconds(
+                    procedure_start_time),
+                step_results
+            };
+        }
 
         const std::size_t maximum_attempts =
             step.retries + 1;
@@ -123,7 +171,8 @@ TestResult execute_procedure(
                         step.name,
                         false,
                         attempts_used,
-                        elapsed_milliseconds(step_start_time),
+                        elapsed_milliseconds(
+                            step_start_time),
                         cancellation_message
                     });
 
@@ -149,7 +198,10 @@ TestResult execute_procedure(
                 std::chrono::steady_clock::now();
 
             const bool attempt_passed =
-                execute_step(step, relay, failure_message);
+                execute_step(
+                    step,
+                    *relay,
+                    failure_message);
 
             const auto attempt_end_time =
                 std::chrono::steady_clock::now();
@@ -165,7 +217,8 @@ TestResult execute_procedure(
                         step.name,
                         false,
                         attempts_used,
-                        elapsed_milliseconds(step_start_time),
+                        elapsed_milliseconds(
+                            step_start_time),
                         cancellation_message
                     });
 
@@ -192,13 +245,15 @@ TestResult execute_procedure(
 
             const bool timed_out =
                 attempt_duration >
-                std::chrono::milliseconds(step.timeout_ms);
+                std::chrono::milliseconds(
+                    step.timeout_ms);
 
             if (timed_out)
             {
                 failure_message =
                     "Step exceeded timeout of " +
-                    std::to_string(step.timeout_ms) +
+                    std::to_string(
+                        step.timeout_ms) +
                     " ms";
             }
             else if (attempt_passed)
@@ -221,7 +276,8 @@ TestResult execute_procedure(
         }
 
         const std::int64_t step_duration_ms =
-            elapsed_milliseconds(step_start_time);
+            elapsed_milliseconds(
+                step_start_time);
 
         if (step_passed == false)
         {
@@ -243,7 +299,8 @@ TestResult execute_procedure(
                 failure_message,
                 false,
                 procedure.name,
-                elapsed_milliseconds(procedure_start_time),
+                elapsed_milliseconds(
+                    procedure_start_time),
                 step_results
             };
         }
@@ -269,7 +326,47 @@ TestResult execute_procedure(
         "All steps passed",
         false,
         procedure.name,
-        elapsed_milliseconds(procedure_start_time),
+        elapsed_milliseconds(
+            procedure_start_time),
         step_results
     };
+}
+}
+
+TestResult execute_procedure(
+    const TestProcedure& procedure,
+    IRelay& relay,
+    std::ostream& output,
+    const std::atomic_bool* cancellation_requested)
+{
+    const RelayResolver resolver =
+        [&relay](const TestStep&)
+        {
+            return &relay;
+        };
+
+    return execute_procedure_with_resolver(
+        procedure,
+        resolver,
+        output,
+        cancellation_requested);
+}
+
+TestResult execute_procedure(
+    const TestProcedure& procedure,
+    RelayRegistry& relays,
+    std::ostream& output,
+    const std::atomic_bool* cancellation_requested)
+{
+    const RelayResolver resolver =
+        [&relays](const TestStep& step)
+        {
+            return relays.find(step.device);
+        };
+
+    return execute_procedure_with_resolver(
+        procedure,
+        resolver,
+        output,
+        cancellation_requested);
 }
