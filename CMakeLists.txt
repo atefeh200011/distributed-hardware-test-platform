@@ -11,6 +11,7 @@ add_executable(hwtest
     src/test_executor.cpp
     src/test_procedure_json.cpp
     src/test_report_json.cpp
+    src/relay_registry.cpp
 )
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
@@ -36,6 +37,7 @@ add_executable(command_shell_tests
     src/test_executor.cpp
     src/test_procedure_json.cpp
     src/test_report_json.cpp
+    src/relay_registry.cpp
 )
 
 target_compile_features(command_shell_tests PRIVATE cxx_std_20)
@@ -214,6 +216,7 @@ add_executable(hwtest_server
     src/tcp_transport.cpp
     src/logger.cpp
     src/test_report_json.cpp
+    src/relay_registry.cpp
 )
 
 target_compile_features(hwtest_server PRIVATE cxx_std_20)
