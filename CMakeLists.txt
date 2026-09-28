@@ -130,6 +130,34 @@ add_test(
     NAME test_procedure_json
     COMMAND test_procedure_json_tests
 )
+add_executable(relay_registry_tests
+    tests/relay_registry_tests.cpp
+    src/relay_registry.cpp
+    src/simulated_relay.cpp
+)
+
+target_compile_features(
+    relay_registry_tests
+    PRIVATE cxx_std_20
+)
+
+target_compile_options(
+    relay_registry_tests
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
+target_include_directories(
+    relay_registry_tests
+    PRIVATE src
+)
+
+add_test(
+    NAME relay_registry
+    COMMAND relay_registry_tests
+)
 
 add_executable(network_protocol_tests
     tests/network_protocol_tests.cpp
