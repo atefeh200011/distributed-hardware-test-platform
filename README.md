@@ -1,27 +1,29 @@
 # Distributed Hardware Test and Control Platform
 
-A modern C++20 platform for deterministic hardware testing, device control,
-network communication, automated test execution, structured logging, and
-machine-readable test reports.
+A modern C++20 platform for deterministic hardware testing, named-device
+control, network communication, automated test execution, structured logging,
+and machine-readable test reports.
 
 ## Project status
 
-Milestone 6 complete: thread-safe structured logging, detailed per-step
-execution results, persistent server logs, and automatically generated JSON
-test reports.
+Milestone 7 complete: named relay registration, independent multi-device
+control, device-aware JSON procedures, and local and remote multi-relay test
+execution.
 
 ## Current capabilities
 
 - Hardware abstraction through the `IRelay` interface
-- Deterministic simulated relay driver
-- Interactive command-line control
-- JSON-defined test procedures
+- Deterministic simulated relay drivers
+- Named relay registration and lookup
+- Independent state for multiple relay devices
+- Interactive command-line device control
+- JSON-defined, device-aware test procedures
 - Test execution with retries and timeout detection
 - Cooperative test cancellation
 - Structured procedure and step results
 - TCP client/server communication
 - Concurrent TCP client handling
-- Persistent simulated device state across client connections
+- Persistent simulated device state across connections
 - JSON network request and response messages
 - Thread-safe structured server logging
 - Machine-readable JSON test reports
@@ -29,7 +31,9 @@ test reports.
 
 ## Planned capabilities
 
-- Multiple simulated and physical hardware devices
+- Additional simulated hardware device types
+- Physical hardware driver implementations
+- Dynamic device configuration
 - Test execution history and report analysis
 - Authentication and encrypted network communication
 - Continuous integration and automated releases
@@ -38,8 +42,8 @@ test reports.
 ## Motivation
 
 I am building this project to develop practical skills in modern C++, hardware
-communication, networking, concurrency, automated testing, and software
-architecture.
+abstraction, communication, networking, concurrency, automated testing, and
+software architecture.
 
 ## Requirements
 
@@ -66,7 +70,7 @@ Configure the project with CMake and Ninja:
 cmake -S . -B build -G Ninja
 ```
 
-Compile the application, server, client, and tests:
+Compile the applications and tests:
 
 ```bash
 cmake --build build
@@ -92,9 +96,10 @@ Available commands:
 | --- | --- |
 | `help` | Show available commands |
 | `status` | Show platform status |
-| `relay on` | Switch the simulated relay on |
-| `relay off` | Switch the simulated relay off |
-| `relay status` | Show the simulated relay state |
+| `relays` | List registered relays |
+| `relay <name> on` | Switch a named relay on |
+| `relay <name> off` | Switch a named relay off |
+| `relay <name> status` | Show a named relay state |
 | `run <file>` | Load and execute a JSON test procedure |
 | `exit` | Exit the application |
 
@@ -102,15 +107,46 @@ Example:
 
 ```text
 Hardware Test Platform version 0.1.0
-hwtest> relay on
-Relay state: on
-hwtest> relay status
-Relay state: on
-hwtest> relay off
-Relay state: off
+hwtest> relays
+Available relays:
+  relay-1
+  relay-2
+hwtest> relay relay-1 on
+Relay relay-1 state: on
+hwtest> relay relay-2 status
+Relay relay-2 state: off
+hwtest> relay relay-1 off
+Relay relay-1 state: off
 hwtest> exit
 Shutting down the hardware test platform project.
 ```
+
+Each registered relay maintains its own independent state.
+
+## Device registry
+
+The `RelayRegistry` owns relay implementations and makes them available through
+unique names such as:
+
+```text
+relay-1
+relay-2
+```
+
+The registry provides:
+
+- Relay registration
+- Lookup by name
+- Duplicate-name rejection
+- Missing-device detection
+- Deterministic sorted device listings
+- Shared access through the `IRelay` abstraction
+
+The command shell and test executor depend on the registry instead of depending
+directly on a single simulated relay.
+
+Future relay drivers can implement `IRelay` and be registered without changing
+the command-processing or procedure-execution logic.
 
 ## TCP client and server
 
@@ -122,13 +158,21 @@ Start the server in one terminal:
 ./build/hwtest_server
 ```
 
-Send commands from another terminal:
+Use another terminal to list devices:
 
 ```bash
-./build/hwtest_client status
-./build/hwtest_client relay on
-./build/hwtest_client relay status
-./build/hwtest_client relay off
+./build/hwtest_client relays
+```
+
+Control named relays remotely:
+
+```bash
+./build/hwtest_client relay relay-1 on
+./build/hwtest_client relay relay-1 status
+./build/hwtest_client relay relay-2 on
+./build/hwtest_client relay relay-2 status
+./build/hwtest_client relay relay-1 off
+./build/hwtest_client relay relay-2 off
 ```
 
 Execute a JSON procedure remotely:
@@ -137,14 +181,20 @@ Execute a JSON procedure remotely:
 ./build/hwtest_client run procedures/relay_smoke_test.json
 ```
 
+Execute a multi-relay procedure remotely:
+
+```bash
+./build/hwtest_client run procedures/multi_relay_test.json
+```
+
 Stop the server cleanly:
 
 ```bash
 ./build/hwtest_client exit
 ```
 
-The server preserves the simulated relay state between client connections and
-handles multiple client connections concurrently.
+The server preserves the state of every registered relay between client
+connections and handles multiple client connections concurrently.
 
 ## Network protocol
 
@@ -155,7 +205,7 @@ Example request:
 ```json
 {
     "request_id": "client-request-001",
-    "command": "relay status"
+    "command": "relay relay-1 status"
 }
 ```
 
@@ -165,76 +215,111 @@ Example response:
 {
     "request_id": "client-request-001",
     "success": true,
-    "output": "Relay state: off\n"
+    "output": "Relay relay-1 state: off\n"
 }
 ```
 
-The response request ID allows a client to verify that the response belongs to
-its request.
+The request ID allows the client to verify that the response belongs to its
+request.
 
 ## JSON test procedures
 
-Test procedures define an ordered sequence of hardware actions and
-expectations. Each procedure contains a name and a list of steps.
+Test procedures define ordered sequences of named-device actions and
+expectations.
 
-Run the included relay smoke test from the local shell:
+Each step may contain:
 
-```text
-run procedures/relay_smoke_test.json
-```
-
-Or run it through the TCP client:
-
-```bash
-./build/hwtest_client run procedures/relay_smoke_test.json
-```
+| Property | Required | Description |
+| --- | --- | --- |
+| `name` | Yes | Human-readable step name |
+| `action` | Yes | Hardware action or expectation |
+| `device` | No | Registered relay name; defaults to `relay-1` |
+| `retries` | No | Additional attempts after the first failure |
+| `timeout_ms` | No | Maximum permitted duration in milliseconds |
 
 Supported actions:
 
 | Action | Behavior |
 | --- | --- |
-| `relay_on` | Switch the relay on |
-| `relay_off` | Switch the relay off |
-| `expect_relay_on` | Fail if the relay is off |
-| `expect_relay_off` | Fail if the relay is on |
+| `relay_on` | Switch the selected relay on |
+| `relay_off` | Switch the selected relay off |
+| `expect_relay_on` | Fail if the selected relay is off |
+| `expect_relay_off` | Fail if the selected relay is on |
 
-Each step may also contain:
+When `device` is omitted, it defaults to `relay-1`.
 
-| Property | Description |
-| --- | --- |
-| `retries` | Number of additional attempts after the first failure |
-| `timeout_ms` | Maximum permitted step duration in milliseconds |
+When `retries` is omitted, it defaults to `0`.
 
-Example procedure:
+When `timeout_ms` is omitted, it defaults to `1000` milliseconds.
+
+### Single-relay procedure
+
+Run the included relay smoke test:
+
+```text
+run procedures/relay_smoke_test.json
+```
+
+Example step:
 
 ```json
 {
-    "name": "Relay smoke test",
+    "name": "Verify relay on",
+    "device": "relay-1",
+    "action": "expect_relay_on",
+    "retries": 2,
+    "timeout_ms": 500
+}
+```
+
+### Multi-relay procedure
+
+Run the multi-relay independence test:
+
+```text
+run procedures/multi_relay_test.json
+```
+
+The procedure controls both registered relays:
+
+```json
+{
+    "name": "Multi-relay independence test",
     "steps": [
         {
-            "name": "Switch relay on",
-            "action": "relay_on"
-        },
-        {
-            "name": "Verify relay on",
-            "action": "expect_relay_on",
-            "retries": 2,
+            "name": "Switch first relay on",
+            "device": "relay-1",
+            "action": "relay_on",
             "timeout_ms": 500
         },
         {
-            "name": "Switch relay off",
-            "action": "relay_off"
+            "name": "Switch second relay on",
+            "device": "relay-2",
+            "action": "relay_on",
+            "timeout_ms": 500
         },
         {
-            "name": "Verify relay off",
-            "action": "expect_relay_off"
+            "name": "Verify first relay on",
+            "device": "relay-1",
+            "action": "expect_relay_on",
+            "timeout_ms": 500
+        },
+        {
+            "name": "Verify second relay on",
+            "device": "relay-2",
+            "action": "expect_relay_on",
+            "timeout_ms": 500
         }
     ]
 }
 ```
 
-When `retries` is omitted, it defaults to `0`. When `timeout_ms` is omitted, it
-defaults to `1000` milliseconds.
+Before each step, the executor looks up the configured device in the registry.
+If the device does not exist, execution fails with a structured error such as:
+
+```text
+Relay not found: missing
+```
 
 ## Reliable test execution
 
@@ -243,7 +328,9 @@ result.
 
 Execution features include:
 
-- Retry handling for failed steps
+- Named-device resolution
+- Missing-device detection
+- Retry handling
 - Step timeout detection
 - Cooperative cancellation
 - Completed-step tracking
@@ -255,8 +342,11 @@ Execution features include:
 A failed step is not counted as completed. If all configured attempts fail, the
 procedure stops and returns a failed result.
 
-Cancellation is cooperative: the executor checks the cancellation request
-between operations and stops safely when cancellation is requested.
+A missing device fails before the action is attempted and records an attempt
+count of zero.
+
+Cancellation is cooperative: the executor checks for cancellation between
+operations and stops safely when cancellation is requested.
 
 ## Structured logging
 
@@ -269,7 +359,7 @@ logs/hwtest-server.log
 Each entry contains a UTC timestamp, severity level, and message:
 
 ```text
-2026-09-24T10:59:55Z [INFO] Executing command: relay status
+2026-09-24T10:59:55Z [INFO] Executing command: relay relay-1 status
 ```
 
 Supported log levels include:
@@ -279,7 +369,7 @@ Supported log levels include:
 - `ERROR`
 
 The logger is thread-safe, allowing concurrent TCP client threads to write
-complete log entries without corrupting the log file.
+complete entries without corrupting the log file.
 
 The `logs/` directory contains generated runtime data and is not committed to
 Git.
@@ -289,18 +379,23 @@ Git.
 Running a JSON test procedure automatically creates a machine-readable report:
 
 ```text
-hwtest> run procedures/relay_smoke_test.json
-Running procedure: Relay smoke test
-Step: Switch relay on
-Step: Verify relay on
-Step: Switch relay off
-Step: Verify relay off
+hwtest> run procedures/multi_relay_test.json
+Running procedure: Multi-relay independence test
+Step: Switch first relay on
+Step: Switch second relay on
+Step: Verify first relay on
+Step: Verify second relay on
+Step: Switch first relay off
+Step: Verify first relay off
+Step: Verify second relay remains on
+Step: Switch second relay off
+Step: Verify second relay off
 Result: PASS
-Report written: reports/relay_smoke_test-<timestamp>.json
+Report written: reports/multi_relay_test-<timestamp>.json
 ```
 
-The same report generation occurs when a procedure is executed remotely through
-the TCP client.
+Report generation also occurs when a procedure runs remotely through the TCP
+client.
 
 Every report contains:
 
@@ -315,22 +410,22 @@ Every report contains:
 - Per-step duration
 - Per-step diagnostic message
 
-Example report:
+Example:
 
 ```json
 {
-    "completed_steps": 4,
+    "completed_steps": 9,
     "duration_ms": 0,
     "failed_step": null,
     "message": "All steps passed",
-    "procedure": "Relay smoke test",
+    "procedure": "Multi-relay independence test",
     "status": "PASS",
     "steps": [
         {
             "attempts": 1,
             "duration_ms": 0,
             "message": "Step passed",
-            "name": "Switch relay on",
+            "name": "Switch first relay on",
             "status": "PASS"
         }
     ]
@@ -340,8 +435,7 @@ Example report:
 Report filenames contain timestamps so multiple executions do not overwrite
 one another.
 
-Generated reports are stored in `reports/`. This directory is not committed to
-Git.
+Generated reports are stored in `reports/`, which is not committed to Git.
 
 A duration of `0` milliseconds is valid when a simulated operation completes
 faster than the clock's millisecond resolution.
@@ -357,9 +451,13 @@ ctest --test-dir build --output-on-failure
 The test suite covers:
 
 - Command processing
-- Simulated relay state transitions
-- Test procedure models
-- JSON procedure parsing and validation
+- Named relay registration and lookup
+- Duplicate and invalid relay registration
+- Independent simulated relay state
+- Device-aware JSON procedure parsing
+- Default device selection
+- Invalid and missing device handling
+- Multi-relay procedure execution
 - Retry and timeout behavior
 - Cooperative cancellation
 - Detailed execution results
@@ -370,19 +468,30 @@ The test suite covers:
 - Newline-delimited message framing
 - TCP transport
 - Concurrent TCP clients
-- Remote JSON procedure execution
-- Automatic remote report generation
+- Remote named-relay control
+- Remote single-relay procedure execution
+- Remote multi-relay procedure execution
+- Automatic report generation
 
 ## Architecture
 
-The command shell depends on the `IRelay` interface rather than a specific
-hardware implementation. The current `SimulatedRelay` provides deterministic
-in-memory behavior for development and automated testing.
+The `IRelay` interface separates hardware operations from their
+implementations.
 
-Future physical relay drivers can implement the same interface without changing
-the command-processing or test-execution logic.
+`SimulatedRelay` provides deterministic in-memory behavior for development and
+testing.
 
-The test executor is separated from JSON parsing and report generation:
+`RelayRegistry` owns and identifies multiple relay implementations:
+
+```text
+RelayRegistry
+    |
+    +---- relay-1 ----> IRelay ----> SimulatedRelay
+    |
+    +---- relay-2 ----> IRelay ----> SimulatedRelay
+```
+
+The device-aware procedure path is:
 
 ```text
 JSON procedure
@@ -391,10 +500,16 @@ JSON procedure
 Procedure parser
       |
       v
-TestProcedure model
+TestProcedure with named devices
       |
       v
-Test executor -----> IRelay -----> SimulatedRelay
+Test executor
+      |
+      v
+RelayRegistry
+      |
+      v
+Selected IRelay implementation
       |
       v
 TestResult
@@ -420,18 +535,25 @@ Concurrent TCP server
     v
 Command shell
     |
-    +-----> Simulated relay
+    v
+RelayRegistry
     |
-    +-----> Test executor
+    +----> Named relay control
     |
-    +-----> JSON report
+    +----> Multi-device test execution
+    |
+    +----> JSON report generation
 ```
+
+A server-side command mutex protects shared device state while concurrent
+clients are handled by separate threads.
 
 ## Project structure
 
 ```text
 .
 ├── procedures/
+│   ├── multi_relay_test.json
 │   └── relay_smoke_test.json
 ├── src/
 │   ├── command_shell.cpp
@@ -445,6 +567,8 @@ Command shell
 │   ├── network_protocol_json.cpp
 │   ├── network_protocol_json.h
 │   ├── relay.h
+│   ├── relay_registry.cpp
+│   ├── relay_registry.h
 │   ├── simulated_relay.cpp
 │   ├── simulated_relay.h
 │   ├── tcp_client_main.cpp
@@ -464,10 +588,13 @@ Command shell
 │   ├── logger_tests.cpp
 │   ├── network_framing_tests.cpp
 │   ├── network_protocol_tests.cpp
+│   ├── relay_registry_tests.cpp
 │   ├── simulated_relay_tests.cpp
 │   ├── tcp_integration_test.sh
 │   ├── tcp_transport_tests.cpp
+│   ├── test_executor_registry_tests.cpp
 │   ├── test_executor_tests.cpp
+│   ├── test_procedure_device_tests.cpp
 │   ├── test_procedure_json_tests.cpp
 │   ├── test_procedure_tests.cpp
 │   ├── test_report_json_tests.cpp
@@ -485,3 +612,4 @@ Command shell
 - Milestone 4: Reliable execution, retries, timeouts, and cancellation
 - Milestone 5: Concurrent TCP client/server communication
 - Milestone 6: Structured logging and machine-readable test reports
+- Milestone 7: Named multi-device registration, control, and execution
