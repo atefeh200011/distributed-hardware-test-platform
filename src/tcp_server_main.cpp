@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -20,6 +21,7 @@
 #include "logger.h"
 #include "network_protocol.h"
 #include "network_protocol_json.h"
+#include "relay_registry.h"
 #include "simulated_relay.h"
 #include "tcp_transport.h"
 
@@ -30,7 +32,7 @@ constexpr int server_port = 5050;
 bool handle_client(
     int client_socket,
     int server_socket,
-    SimulatedRelay& relay,
+    RelayRegistry& relays,
     std::mutex& command_mutex,
     std::atomic_bool& shutdown_requested,
     Logger& logger)
@@ -65,18 +67,20 @@ bool handle_client(
             parse_error))
     {
         logger.info(
-            "Executing command: " + request.command);
+            "Executing command: " +
+            request.command);
 
         std::ostringstream command_output;
         bool shell_should_continue = true;
 
         {
-            std::lock_guard<std::mutex> lock(command_mutex);
+            std::lock_guard<std::mutex> lock(
+                command_mutex);
 
             shell_should_continue =
                 handle_command(
                     request.command,
-                    relay,
+                    relays,
                     command_output);
         }
 
@@ -90,7 +94,7 @@ bool handle_client(
         {
             shutdown_requested.store(true);
 
-            // Wake main() if it is blocked inside accept().
+            // Wake main() if it is blocked in accept().
             shutdown(server_socket, SHUT_RDWR);
         }
     }
@@ -103,7 +107,9 @@ bool handle_client(
         response = CommandResponse{
             "unknown",
             false,
-            "Invalid request: " + parse_error + '\n'
+            "Invalid request: " +
+                parse_error +
+                '\n'
         };
     }
 
@@ -154,12 +160,33 @@ int main()
 
     if (log_file.is_open() == false)
     {
-        std::cerr << "Failed to open server log file\n";
+        std::cerr
+            << "Failed to open server log file\n";
         return 1;
     }
 
     Logger logger(log_file);
     logger.info("Hardware test server starting");
+
+    RelayRegistry relays;
+
+    if (relays.add(
+            "relay-1",
+            std::make_shared<SimulatedRelay>()) == false ||
+        relays.add(
+            "relay-2",
+            std::make_shared<SimulatedRelay>()) == false)
+    {
+        const std::string error_message =
+            "Failed to register server relays";
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
+        return 1;
+    }
+
+    logger.info("Registered relay: relay-1");
+    logger.info("Registered relay: relay-2");
 
     const int server_socket =
         socket(AF_INET, SOCK_STREAM, 0);
@@ -197,7 +224,8 @@ int main()
 
     sockaddr_in server_address{};
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(server_port);
+    server_address.sin_port =
+        htons(server_port);
 
     if (inet_pton(
             AF_INET,
@@ -247,7 +275,8 @@ int main()
     }
 
     std::cout
-        << "Hardware test server listening on 127.0.0.1:"
+        << "Hardware test server listening on "
+        << "127.0.0.1:"
         << server_port
         << std::endl;
 
@@ -255,7 +284,6 @@ int main()
         "TCP server listening on 127.0.0.1:" +
         std::to_string(server_port));
 
-    SimulatedRelay relay;
     std::mutex command_mutex;
     std::atomic_bool shutdown_requested{false};
     std::vector<std::thread> client_threads;
@@ -264,7 +292,10 @@ int main()
     while (shutdown_requested.load() == false)
     {
         const int client_socket =
-            accept(server_socket, nullptr, nullptr);
+            accept(
+                server_socket,
+                nullptr,
+                nullptr);
 
         if (client_socket < 0)
         {
@@ -298,7 +329,7 @@ int main()
         client_threads.emplace_back(
             [client_socket,
              server_socket,
-             &relay,
+             &relays,
              &command_mutex,
              &shutdown_requested,
              &logger]()
@@ -307,7 +338,7 @@ int main()
                     handle_client(
                         client_socket,
                         server_socket,
-                        relay,
+                        relays,
                         command_mutex,
                         shutdown_requested,
                         logger);
@@ -317,15 +348,18 @@ int main()
                 if (handled == false)
                 {
                     std::cerr
-                        << "Failed to handle client request\n";
+                        << "Failed to handle "
+                        << "client request\n";
 
                     logger.error(
-                        "Failed to handle client request");
+                        "Failed to handle "
+                        "client request");
                 }
             });
     }
 
-    for (std::thread& client_thread : client_threads)
+    for (std::thread& client_thread :
+         client_threads)
     {
         if (client_thread.joinable())
         {
@@ -338,12 +372,15 @@ int main()
     if (server_failed)
     {
         logger.error(
-            "Hardware test server stopped because of an error");
+            "Hardware test server stopped "
+            "because of an error");
         return 1;
     }
 
     logger.info("Hardware test server stopped");
 
-    std::cout << "Hardware test server stopped\n";
+    std::cout
+        << "Hardware test server stopped\n";
+
     return 0;
 }

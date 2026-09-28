@@ -49,23 +49,60 @@ then
     exit 1
 fi
 
-relay_on_output="$("${client_executable}" relay on)"
+relay_list_output="$(
+    "${client_executable}" relays
+)"
 
-if [[ "${relay_on_output}" != "Relay state: on" ]]
+expected_relay_list=$(
+    printf '%s\n' \
+        "Available relays:" \
+        "  relay-1" \
+        "  relay-2"
+)
+
+if [[ "${relay_list_output}" != "${expected_relay_list}" ]]
 then
-    echo "FAIL: relay on response is incorrect"
-    echo "Actual: ${relay_on_output}"
+    echo "FAIL: remote relay list is incorrect"
+    echo "Expected:"
+    echo "${expected_relay_list}"
+    echo "Actual:"
+    echo "${relay_list_output}"
     exit 1
 fi
 
-relay_status_on_output="$(
-    "${client_executable}" relay status
+relay_1_on_output="$(
+    "${client_executable}" relay relay-1 on
 )"
 
-if [[ "${relay_status_on_output}" != "Relay state: on" ]]
+if [[ "${relay_1_on_output}" != \
+      "Relay relay-1 state: on" ]]
 then
-    echo "FAIL: relay should remain on"
-    echo "Actual: ${relay_status_on_output}"
+    echo "FAIL: relay-1 on response is incorrect"
+    echo "Actual: ${relay_1_on_output}"
+    exit 1
+fi
+
+relay_1_status_output="$(
+    "${client_executable}" relay relay-1 status
+)"
+
+if [[ "${relay_1_status_output}" != \
+      "Relay relay-1 state: on" ]]
+then
+    echo "FAIL: relay-1 should remain on"
+    echo "Actual: ${relay_1_status_output}"
+    exit 1
+fi
+
+relay_2_status_output="$(
+    "${client_executable}" relay relay-2 status
+)"
+
+if [[ "${relay_2_status_output}" != \
+      "Relay relay-2 state: off" ]]
+then
+    echo "FAIL: relay-2 should initially be off"
+    echo "Actual: ${relay_2_status_output}"
     exit 1
 fi
 
@@ -73,8 +110,10 @@ concurrent_client_pids=()
 
 for client_index in {1..8}
 do
-    "${client_executable}" relay status \
+    "${client_executable}" \
+        relay relay-1 status \
         >"${temporary_directory}/client-${client_index}.log" &
+
     concurrent_client_pids+=("$!")
 done
 
@@ -89,7 +128,8 @@ do
         cat "${temporary_directory}/client-${client_index}.log"
     )"
 
-    if [[ "${concurrent_output}" != "Relay state: on" ]]
+    if [[ "${concurrent_output}" != \
+          "Relay relay-1 state: on" ]]
     then
         echo \
             "FAIL: concurrent client ${client_index} received incorrect state"
@@ -97,6 +137,30 @@ do
         exit 1
     fi
 done
+
+relay_2_on_output="$(
+    "${client_executable}" relay relay-2 on
+)"
+
+if [[ "${relay_2_on_output}" != \
+      "Relay relay-2 state: on" ]]
+then
+    echo "FAIL: relay-2 on response is incorrect"
+    echo "Actual: ${relay_2_on_output}"
+    exit 1
+fi
+
+relay_1_after_relay_2_output="$(
+    "${client_executable}" relay relay-1 status
+)"
+
+if [[ "${relay_1_after_relay_2_output}" != \
+      "Relay relay-1 state: on" ]]
+then
+    echo "FAIL: changing relay-2 affected relay-1"
+    echo "Actual: ${relay_1_after_relay_2_output}"
+    exit 1
+fi
 
 procedure_output="$(
     "${client_executable}" run "${procedure_file}"
@@ -122,7 +186,8 @@ report_line="$(
         tail -n 1
 )"
 
-if [[ "${procedure_result_output}" != "${expected_procedure_output}" ]]
+if [[ "${procedure_result_output}" != \
+      "${expected_procedure_output}" ]]
 then
     echo "FAIL: remote JSON procedure output is incorrect"
     echo "Expected:"
@@ -132,8 +197,7 @@ then
     exit 1
 fi
 
-if [[ ! "${report_line}" =~ \
-^Report\ written:\ reports/.+\.json$ ]]
+if [[ ! "${report_line}" =~ ^Report\ written:\ reports/.+\.json$ ]]
 then
     echo "FAIL: remote procedure report path is incorrect"
     echo "Actual: ${report_line}"
@@ -149,49 +213,66 @@ then
     exit 1
 fi
 
-if grep -q '"status": "PASS"' "${report_path}"
+if ! grep -q '"status": "PASS"' "${report_path}"
 then
-    :
-else
-    echo "FAIL: generated remote report does not contain PASS status"
+    echo "FAIL: generated report does not contain PASS status"
     cat "${report_path}"
     exit 1
 fi
 
 rm -f "${report_path}"
 
-procedure_final_state="$(
-    "${client_executable}" relay status
+relay_1_final_state="$(
+    "${client_executable}" relay relay-1 status
 )"
 
-if [[ "${procedure_final_state}" != "Relay state: off" ]]
+if [[ "${relay_1_final_state}" != \
+      "Relay relay-1 state: off" ]]
 then
-    echo "FAIL: remote procedure should leave relay off"
-    echo "Actual: ${procedure_final_state}"
+    echo "FAIL: procedure should leave relay-1 off"
+    echo "Actual: ${relay_1_final_state}"
     exit 1
 fi
 
-relay_off_output="$("${client_executable}" relay off)"
-
-if [[ "${relay_off_output}" != "Relay state: off" ]]
-then
-    echo "FAIL: relay off response is incorrect"
-    echo "Actual: ${relay_off_output}"
-    exit 1
-fi
-
-relay_status_off_output="$(
-    "${client_executable}" relay status
+relay_2_final_state="$(
+    "${client_executable}" relay relay-2 status
 )"
 
-if [[ "${relay_status_off_output}" != "Relay state: off" ]]
+if [[ "${relay_2_final_state}" != \
+      "Relay relay-2 state: on" ]]
 then
-    echo "FAIL: relay should remain off"
-    echo "Actual: ${relay_status_off_output}"
+    echo "FAIL: procedure should not change relay-2"
+    echo "Actual: ${relay_2_final_state}"
     exit 1
 fi
 
-exit_output="$("${client_executable}" exit)"
+relay_2_off_output="$(
+    "${client_executable}" relay relay-2 off
+)"
+
+if [[ "${relay_2_off_output}" != \
+      "Relay relay-2 state: off" ]]
+then
+    echo "FAIL: relay-2 off response is incorrect"
+    echo "Actual: ${relay_2_off_output}"
+    exit 1
+fi
+
+missing_relay_output="$(
+    "${client_executable}" relay missing status
+)"
+
+if [[ "${missing_relay_output}" != \
+      "Relay not found: missing" ]]
+then
+    echo "FAIL: missing relay response is incorrect"
+    echo "Actual: ${missing_relay_output}"
+    exit 1
+fi
+
+exit_output="$(
+    "${client_executable}" exit
+)"
 
 if [[ "${exit_output}" != \
       "Shutting down the hardware test platform project." ]]
@@ -214,4 +295,3 @@ else
     cat "${server_log}"
     exit 1
 fi
-
