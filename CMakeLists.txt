@@ -132,6 +132,39 @@ add_test(
     NAME test_procedure_json
     COMMAND test_procedure_json_tests
 )
+add_executable(test_procedure_device_tests
+    tests/test_procedure_device_tests.cpp
+    src/test_procedure_json.cpp
+)
+
+target_compile_features(
+    test_procedure_device_tests
+    PRIVATE cxx_std_20
+)
+
+target_compile_options(
+    test_procedure_device_tests
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
+target_include_directories(
+    test_procedure_device_tests
+    PRIVATE src
+)
+
+target_link_libraries(
+    test_procedure_device_tests
+    PRIVATE nlohmann_json::nlohmann_json
+)
+
+add_test(
+    NAME test_procedure_device
+    COMMAND test_procedure_device_tests
+)
+
 add_executable(relay_registry_tests
     tests/relay_registry_tests.cpp
     src/relay_registry.cpp

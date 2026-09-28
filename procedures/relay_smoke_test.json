@@ -3,22 +3,26 @@
     "steps": [
         {
             "name": "Switch relay on",
+            "device": "relay-1",
             "action": "relay_on",
             "timeout_ms": 500
         },
         {
             "name": "Verify relay on",
+            "device": "relay-1",
             "action": "expect_relay_on",
             "retries": 2,
             "timeout_ms": 500
         },
         {
             "name": "Switch relay off",
+            "device": "relay-1",
             "action": "relay_off",
             "timeout_ms": 500
         },
         {
             "name": "Verify relay off",
+            "device": "relay-1",
             "action": "expect_relay_off",
             "retries": 2,
             "timeout_ms": 500

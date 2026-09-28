@@ -52,37 +52,57 @@ bool parse_test_procedure_json(
         const nlohmann::json parsed_json =
             nlohmann::json::parse(json_text);
 
+        if (parsed_json.is_object() == false)
+        {
+            error_message =
+                "procedure must be a JSON object";
+            return false;
+        }
+
         if (parsed_json.contains("name") == false ||
             parsed_json["name"].is_string() == false)
         {
-            error_message = "procedure name must be a string";
+            error_message =
+                "procedure name must be a string";
             return false;
         }
 
         if (parsed_json.contains("steps") == false ||
             parsed_json["steps"].is_array() == false)
         {
-            error_message = "procedure steps must be an array";
+            error_message =
+                "procedure steps must be an array";
             return false;
         }
 
         TestProcedure parsed_procedure;
+
         parsed_procedure.name =
             parsed_json["name"].get<std::string>();
 
-        for (const auto& step_json : parsed_json["steps"])
+        for (const auto& step_json :
+             parsed_json["steps"])
         {
+            if (step_json.is_object() == false)
+            {
+                error_message =
+                    "procedure step must be a JSON object";
+                return false;
+            }
+
             if (step_json.contains("name") == false ||
                 step_json["name"].is_string() == false)
             {
-                error_message = "step name must be a string";
+                error_message =
+                    "step name must be a string";
                 return false;
             }
 
             if (step_json.contains("action") == false ||
                 step_json["action"].is_string() == false)
             {
-                error_message = "step action must be a string";
+                error_message =
+                    "step action must be a string";
                 return false;
             }
 
@@ -94,10 +114,13 @@ bool parse_test_procedure_json(
 
             TestAction action;
 
-            if (parse_action(action_text, action) == false)
+            if (parse_action(
+                    action_text,
+                    action) == false)
             {
                 error_message =
-                    "unknown test action: " + action_text;
+                    "unknown test action: " +
+                    action_text;
                 return false;
             }
 
@@ -105,44 +128,80 @@ bool parse_test_procedure_json(
 
             if (step_json.contains("retries"))
             {
-                if (step_json["retries"].is_number_unsigned() == false)
+                if (step_json["retries"]
+                        .is_number_unsigned() == false)
                 {
                     error_message =
-                        "step retries must be a non-negative integer";
+                        "step retries must be a "
+                        "non-negative integer";
                     return false;
                 }
 
                 retries =
-                    step_json["retries"].get<std::size_t>();
+                    step_json["retries"]
+                        .get<std::size_t>();
             }
 
             std::size_t timeout_ms = 1000;
 
             if (step_json.contains("timeout_ms"))
             {
-                if (step_json["timeout_ms"].is_number_unsigned() == false)
+                if (step_json["timeout_ms"]
+                        .is_number_unsigned() == false)
                 {
                     error_message =
-                        "step timeout_ms must be a positive integer";
+                        "step timeout_ms must be a "
+                        "positive integer";
                     return false;
                 }
 
                 timeout_ms =
-                    step_json["timeout_ms"].get<std::size_t>();
+                    step_json["timeout_ms"]
+                        .get<std::size_t>();
 
                 if (timeout_ms == 0)
                 {
                     error_message =
-                        "step timeout_ms must be a positive integer";
+                        "step timeout_ms must be a "
+                        "positive integer";
+                    return false;
+                }
+            }
+
+            std::string device = "relay-1";
+
+            if (step_json.contains("device"))
+            {
+                if (step_json["device"].is_string() == false)
+                {
+                    error_message =
+                        "step device must be a string";
+                    return false;
+                }
+
+                device =
+                    step_json["device"]
+                        .get<std::string>();
+
+                if (device.empty())
+                {
+                    error_message =
+                        "step device must not be empty";
                     return false;
                 }
             }
 
             parsed_procedure.steps.push_back(
-                TestStep{step_name, action, retries, timeout_ms});
+                TestStep{
+                    step_name,
+                    action,
+                    retries,
+                    timeout_ms,
+                    device
+                });
         }
 
-        procedure = parsed_procedure;
+        procedure = std::move(parsed_procedure);
         error_message.clear();
         return true;
     }
@@ -163,7 +222,8 @@ bool load_test_procedure_file(
     if (input_file.is_open() == false)
     {
         error_message =
-            "could not open procedure file: " + file_path;
+            "could not open procedure file: " +
+            file_path;
         return false;
     }
 

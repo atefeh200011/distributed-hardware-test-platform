@@ -18,6 +18,7 @@ struct TestStep
     TestAction action;
     std::size_t retries{0};
     std::size_t timeout_ms{1000};
+    std::string device{"relay-1"};
 };
 
 struct TestProcedure
