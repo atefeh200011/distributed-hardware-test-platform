@@ -1,29 +1,67 @@
 #include <iostream>
-#include <memory>
 #include <string>
 
 #include "command_shell.h"
+#include "device_configuration.h"
+#include "device_configuration_json.h"
+#include "device_factory.h"
 #include "relay_registry.h"
-#include "simulated_relay.h"
 
-int main()
+int main(int argc, char* argv[])
 {
-    std::cout
-        << "Hardware Test Platform version 0.1.0\n";
+    if (argc > 2)
+    {
+        std::cerr
+            << "Usage: hwtest [device-configuration-file]\n";
+        return 1;
+    }
+
+    const std::string configuration_file =
+        argc == 2
+            ? argv[1]
+            : "config/devices.json";
+
+    PlatformConfiguration configuration;
+    std::string error_message;
+
+    if (load_device_configuration_file(
+            configuration_file,
+            configuration,
+            error_message) == false)
+    {
+        std::cerr
+            << "Failed to load device configuration: "
+            << error_message
+            << '\n';
+        return 1;
+    }
 
     RelayRegistry relays;
 
-    relays.add(
-        "relay-1",
-        std::make_shared<SimulatedRelay>());
+    if (build_relay_registry(
+            configuration,
+            relays,
+            error_message) == false)
+    {
+        std::cerr
+            << "Failed to build device registry: "
+            << error_message
+            << '\n';
+        return 1;
+    }
 
-    relays.add(
-        "relay-2",
-        std::make_shared<SimulatedRelay>());
+    std::cout
+        << "Hardware Test Platform version 0.1.0\n";
+    std::cout
+        << "Loaded "
+        << relays.size()
+        << " configured devices from "
+        << configuration_file
+        << '\n';
 
     std::string command;
 
-   while (true)
+    while (true)
     {
         std::cout << "hwtest> ";
 

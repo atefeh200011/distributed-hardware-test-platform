@@ -12,6 +12,8 @@ add_executable(hwtest
     src/test_procedure_json.cpp
     src/test_report_json.cpp
     src/relay_registry.cpp
+    src/device_configuration_json.cpp
+    src/device_factory.cpp
 )
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
