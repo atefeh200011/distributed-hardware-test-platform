@@ -356,6 +356,32 @@ add_test(
     NAME tcp_transport
     COMMAND tcp_transport_tests
 )
+add_executable(device_configuration_tests
+    tests/device_configuration_tests.cpp
+)
+
+target_compile_features(
+    device_configuration_tests
+    PRIVATE cxx_std_20
+)
+
+target_compile_options(
+    device_configuration_tests
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
+target_include_directories(
+    device_configuration_tests
+    PRIVATE src
+)
+
+add_test(
+    NAME device_configuration
+    COMMAND device_configuration_tests
+)
 
 add_executable(test_result_tests
     tests/test_result_tests.cpp
