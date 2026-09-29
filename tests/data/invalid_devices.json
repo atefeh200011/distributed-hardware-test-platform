@@ -1,0 +1,9 @@
+{
+    "devices": [
+        {
+            "name": "invalid-relay",
+            "type": "physical_relay",
+            "initial_state": "off"
+        }
+    ]
+}

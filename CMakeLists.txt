@@ -343,6 +343,21 @@ set_tests_properties(
         TIMEOUT 10
         RUN_SERIAL TRUE
 )
+add_test(
+    NAME configuration_startup
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/configuration_startup_test.sh
+        $<TARGET_FILE:hwtest>
+        $<TARGET_FILE:hwtest_server>
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/invalid_devices.json
+)
+
+set_tests_properties(
+    configuration_startup
+    PROPERTIES
+        TIMEOUT 10
+        RUN_SERIAL TRUE
+)
 add_executable(tcp_transport_tests
     tests/tcp_transport_tests.cpp
     src/tcp_transport.cpp
