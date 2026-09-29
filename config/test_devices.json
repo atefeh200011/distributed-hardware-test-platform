@@ -1,0 +1,14 @@
+{
+    "devices": [
+        {
+            "name": "relay-1",
+            "type": "simulated_relay",
+            "initial_state": "off"
+        },
+        {
+            "name": "relay-2",
+            "type": "simulated_relay",
+            "initial_state": "off"
+        }
+    ]
+}

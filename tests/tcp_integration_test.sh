@@ -6,6 +6,7 @@ server_executable="$1"
 client_executable="$2"
 procedure_file="$3"
 multi_procedure_file="$4"
+device_configuration_file="$5"
 
 temporary_directory="$(mktemp -d)"
 server_log="${temporary_directory}/server.log"
@@ -25,7 +26,9 @@ cleanup()
 
 trap cleanup EXIT
 
-"${server_executable}" >"${server_log}" 2>&1 &
+"${server_executable}" \
+    "${device_configuration_file}" \
+    >"${server_log}" 2>&1 &
 server_pid="$!"
 
 server_ready=false

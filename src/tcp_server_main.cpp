@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -22,8 +21,10 @@
 #include "network_protocol.h"
 #include "network_protocol_json.h"
 #include "relay_registry.h"
-#include "simulated_relay.h"
 #include "tcp_transport.h"
+#include "device_configuration.h"
+#include "device_configuration_json.h"
+#include "device_factory.h"
 
 namespace
 {
@@ -137,8 +138,20 @@ bool handle_client(
 }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+    if (argc > 2)
+    {
+        std::cerr
+            << "Usage: hwtest_server "
+            << "[device-configuration-file]\n";
+        return 1;
+    }
+
+    const std::string configuration_file = 
+        argc == 2
+            ? argv[1]
+            : "config/devices.json";
     std::error_code directory_error;
 
     std::filesystem::create_directories(
@@ -168,25 +181,44 @@ int main()
     Logger logger(log_file);
     logger.info("Hardware test server starting");
 
-    RelayRegistry relays;
+    PlatformConfiguration configuration;
+    std::string configuration_error;
 
-    if (relays.add(
-            "relay-1",
-            std::make_shared<SimulatedRelay>()) == false ||
-        relays.add(
-            "relay-2",
-            std::make_shared<SimulatedRelay>()) == false)
+    if (load_device_configuration_file(
+            configuration_file,
+            configuration,
+            configuration_error) == false)
     {
         const std::string error_message =
-            "Failed to register server relays";
+            "Failed to load device configuration: " +
+            configuration_error;
 
         std::cerr << error_message << '\n';
         logger.error(error_message);
         return 1;
     }
 
-    logger.info("Registered relay: relay-1");
-    logger.info("Registered relay: relay-2");
+    RelayRegistry relays;
+
+    if (build_relay_registry(
+            configuration,
+            relays,
+            configuration_error) == false)
+    {
+        const std::string error_message =
+            "Failed to build device registry: " +
+            configuration_error;
+
+        std::cerr << error_message << '\n';
+        logger.error(error_message);
+        return 1;
+    }
+
+    logger.info(
+        "Loaded " +
+        std::to_string(relays.size()) +
+        " configured devices from " +
+        configuration_file);
 
     const int server_socket =
         socket(AF_INET, SOCK_STREAM, 0);

@@ -14,6 +14,8 @@ add_executable(hwtest
     src/relay_registry.cpp
     src/device_configuration_json.cpp
     src/device_factory.cpp
+    src/device_configuration_json.cpp
+    src/device_factory.cpp
 )
 
 target_compile_features(hwtest PRIVATE cxx_std_20)
@@ -282,6 +284,8 @@ add_executable(hwtest_server
     src/logger.cpp
     src/test_report_json.cpp
     src/relay_registry.cpp
+    src/device_configuration_json.cpp
+    src/device_factory.cpp
 )
 
 target_compile_features(hwtest_server PRIVATE cxx_std_20)
@@ -330,6 +334,7 @@ add_test(
         $<TARGET_FILE:hwtest_client>
         ${CMAKE_CURRENT_SOURCE_DIR}/procedures/relay_smoke_test.json
         ${CMAKE_CURRENT_SOURCE_DIR}/procedures/multi_relay_test.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/config/test_devices.json
 )
 
 set_tests_properties(
