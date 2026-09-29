@@ -449,3 +449,35 @@ add_test(
     NAME test_report_json
     COMMAND test_report_json_tests
 )
+add_executable(device_configuration_json_tests
+    tests/device_configuration_json_tests.cpp
+    src/device_configuration_json.cpp
+)
+
+target_compile_features(
+    device_configuration_json_tests
+    PRIVATE cxx_std_20
+)
+
+target_compile_options(
+    device_configuration_json_tests
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
+target_include_directories(
+    device_configuration_json_tests
+    PRIVATE src
+)
+
+target_link_libraries(
+    device_configuration_json_tests
+    PRIVATE nlohmann_json::nlohmann_json
+)
+
+add_test(
+    NAME device_configuration_json
+    COMMAND device_configuration_json_tests
+)
