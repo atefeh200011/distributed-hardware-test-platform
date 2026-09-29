@@ -481,3 +481,32 @@ add_test(
     NAME device_configuration_json
     COMMAND device_configuration_json_tests
 )
+add_executable(device_factory_tests
+    tests/device_factory_tests.cpp
+    src/device_factory.cpp
+    src/relay_registry.cpp
+    src/simulated_relay.cpp
+)
+
+target_compile_features(
+    device_factory_tests
+    PRIVATE cxx_std_20
+)
+
+target_compile_options(
+    device_factory_tests
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+)
+
+target_include_directories(
+    device_factory_tests
+    PRIVATE src
+)
+
+add_test(
+    NAME device_factory
+    COMMAND device_factory_tests
+)
