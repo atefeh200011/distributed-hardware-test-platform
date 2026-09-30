@@ -5,7 +5,7 @@ documented in this file.
 
 The project follows Semantic Versioning.
 
-## [1.0.0] - 2026-09-30
+## [1.0.0] - 2026-10-01
 
 ### Added
 
