@@ -1,14 +1,19 @@
 # Distributed Hardware Test and Control Platform
 
+[![CI](https://github.com/atefeh200011/distributed-hardware-test-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/atefeh200011/distributed-hardware-test-platform/actions/workflows/ci.yml)
+
 A modern C++20 platform for deterministic hardware testing, configuration-driven
 device control, network communication, automated test execution, structured
 logging, and machine-readable test reports.
 
 ## Project status
 
-Milestone 8 complete: JSON-configured device creation, validated startup
-configuration, configurable initial relay states, and shared configuration
-support for local and TCP server applications.
+Version `1.0.0` complete.
+
+The platform supports configuration-driven simulated devices, local and remote
+device control, multi-device JSON test procedures, reliable execution,
+structured logging, machine-readable reports, automated testing, sanitizer
+verification, and continuous integration.
 
 ## Current capabilities
 
@@ -31,18 +36,21 @@ support for local and TCP server applications.
 - Machine-readable JSON test reports
 - Automated unit and integration tests
 
-## Planned capabilities
+## Version 1.0.0 highlights
 
-Milestone 9 will focus on production polish and the `v1.0.0` release:
+- Configuration-driven device creation
+- Named multi-device control and independent device state
+- Local command-line and concurrent TCP client/server applications
+- JSON-defined, device-aware test procedures
+- Retries, timeout detection, and cooperative cancellation
+- Structured execution results and JSON report generation
+- Thread-safe persistent server logging
+- Unit, integration, concurrency, and startup-validation testing
+- Optional AddressSanitizer and UndefinedBehaviorSanitizer builds
+- GitHub Actions continuous integration
+- MIT open-source license
 
-- CMake target cleanup
-- Command parsing improvements
-- Compiler sanitizer verification
-- Continuous integration with GitHub Actions
-- Open-source license
-- Release notes
-- Versioned release
-- Final résumé and interview documentation
+See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 
 ## Motivation
 
@@ -85,6 +93,23 @@ For a clean rebuild:
 
 ```bash
 cmake --build build --clean-first
+```
+
+### Sanitized build
+
+Configure a separate Debug build with AddressSanitizer and
+UndefinedBehaviorSanitizer enabled:
+
+```bash
+cmake \
+    -S . \
+    -B build-sanitized \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DHWTEST_ENABLE_SANITIZERS=ON
+
+cmake --build build-sanitized
+ctest --test-dir build-sanitized --output-on-failure
 ```
 
 ## Device configuration
@@ -571,10 +596,10 @@ Command shell
 Configured RelayRegistry
 ```
 
-## Project structure
-
-```text
 .
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── config/
 │   ├── devices.json
 │   └── test_devices.json
@@ -613,7 +638,8 @@ Configured RelayRegistry
 │   ├── test_procedure_json.h
 │   ├── test_report_json.cpp
 │   ├── test_report_json.h
-│   └── test_result.h
+│   ├── test_result.h
+│   └── version.h.in
 ├── tests/
 │   ├── data/
 │   │   └── invalid_devices.json
@@ -636,11 +662,17 @@ Configured RelayRegistry
 │   ├── test_procedure_tests.cpp
 │   ├── test_report_json_tests.cpp
 │   └── test_result_tests.cpp
+├── .gitignore
+├── CHANGELOG.md
 ├── CMakeLists.txt
-├── README.md
-└── .gitignore
-```
+├── LICENSE
+└── README.md
 
+## License
+
+This project is available under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Atefeh Mohammadpour.
 ## Milestones
 
 - Milestone 1: Project foundation and interactive command shell
@@ -651,4 +683,4 @@ Configured RelayRegistry
 - Milestone 6: Structured logging and machine-readable reports
 - Milestone 7: Named multi-device registration, control, and execution
 - Milestone 8: Configuration-driven device creation and startup
-- Milestone 9: Production polish, CI, documentation, and `v1.0.0`
+- Milestone 9: Production polish, CI, documentation, and `v1.0.0` release
