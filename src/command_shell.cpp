@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <sstream>
 #include <string>
+#include <cctype>
 
 #include "test_executor.h"
 #include "test_procedure_json.h"
@@ -11,6 +12,68 @@
 
 namespace
 {
+std::string trim_copy(const std::string& text)
+{
+    const std::size_t first =
+        text.find_first_not_of(" \t\r\n");
+
+    if (first == std::string::npos)
+    {
+        return {};
+    }
+
+    const std::size_t last =
+        text.find_last_not_of(" \t\r\n");
+
+    return text.substr(
+        first,
+        last - first + 1);
+}
+
+bool begins_with_keyword(
+    const std::string& text,
+    const std::string& keyword)
+{
+    if (text.size() <= keyword.size())
+    {
+        return false;
+    }
+
+    if (text.compare(
+            0,
+            keyword.size(),
+            keyword) != 0)
+    {
+        return false;
+    }
+
+    return std::isspace(
+        static_cast<unsigned char>(
+            text[keyword.size()])) != 0;
+}
+
+bool parse_legacy_relay_action(
+    const std::string& command,
+    std::string& action)
+{
+    std::istringstream command_stream(command);
+
+    std::string relay_word;
+    std::string extra_argument;
+
+    command_stream
+        >> relay_word
+        >> action;
+
+    if (relay_word != "relay" ||
+        action.empty() ||
+        command_stream >> extra_argument)
+    {
+        return false;
+    }
+
+    return true;
+}
 std::string create_report_path(
     const std::string& procedure_file)
 {
@@ -179,26 +242,29 @@ bool handle_command(
     RelayRegistry& relays,
     std::ostream& output)
 {
-    if (command == "exit")
+    const std::string normalized_command =
+        trim_copy(command);
+
+    if (normalized_command == "exit")
     {
         output
             << "Shutting down the hardware test platform project.\n";
         return false;
     }
 
-    if (command == "help")
+    if (normalized_command == "help")
     {
         print_help(output);
         return true;
     }
 
-    if (command == "status")
+    if (normalized_command == "status")
     {
         output << "Platform status: ready\n";
         return true;
     }
 
-    if (command == "relays")
+    if (normalized_command == "relays")
     {
         output << "Available relays:\n";
 
@@ -210,10 +276,12 @@ bool handle_command(
         return true;
     }
 
-    if (command.starts_with("relay "))
+    if (begins_with_keyword(
+            normalized_command,
+            "relay"))
     {
         if (handle_named_relay_command(
-                command,
+                normalized_command,
                 relays,
                 output))
         {
@@ -222,22 +290,28 @@ bool handle_command(
 
         output
             << "Unknown command: "
-            << command
+            << normalized_command
             << '\n';
         return true;
     }
 
-    if (command.starts_with("run "))
+    if (begins_with_keyword(
+            normalized_command,
+            "run"))
     {
+        const std::string file_path =
+            trim_copy(
+                normalized_command.substr(3));
+
         return execute_procedure_file(
-            command.substr(4),
+            file_path,
             relays,
             output);
     }
 
     output
         << "Unknown command: "
-        << command
+        << normalized_command
         << '\n';
     return true;
 }
@@ -247,60 +321,76 @@ bool handle_command(
     IRelay& relay,
     std::ostream& output)
 {
-    if (command == "exit")
+    const std::string normalized_command =
+        trim_copy(command);
+
+    if (normalized_command == "exit")
     {
         output
             << "Shutting down the hardware test platform project.\n";
         return false;
     }
 
-    if (command == "help")
+    if (normalized_command == "help")
     {
         print_help(output);
         return true;
     }
 
-    if (command == "status")
+    if (normalized_command == "status")
     {
         output << "Platform status: ready\n";
         return true;
     }
 
-    if (command == "relay on")
+    std::string relay_action;
+
+    if (parse_legacy_relay_action(
+            normalized_command,
+            relay_action))
     {
-        relay.turn_on();
-        output << "Relay state: on\n";
-        return true;
+        if (relay_action == "on")
+        {
+            relay.turn_on();
+            output << "Relay state: on\n";
+            return true;
+        }
+
+        if (relay_action == "off")
+        {
+            relay.turn_off();
+            output << "Relay state: off\n";
+            return true;
+        }
+
+        if (relay_action == "status")
+        {
+            output
+                << "Relay state: "
+                << (relay.is_on() ? "on" : "off")
+                << '\n';
+
+            return true;
+        }
     }
 
-    if (command == "relay off")
+    if (begins_with_keyword(
+            normalized_command,
+            "run"))
     {
-        relay.turn_off();
-        output << "Relay state: off\n";
-        return true;
-    }
+        const std::string file_path =
+            trim_copy(
+                normalized_command.substr(3));
 
-    if (command == "relay status")
-    {
-        output
-            << "Relay state: "
-            << (relay.is_on() ? "on" : "off")
-            << '\n';
-
-        return true;
-    }
-
-    if (command.starts_with("run "))
-    {
         return execute_procedure_file(
-            command.substr(4),
+            file_path,
             relay,
             output);
     }
 
     output
         << "Unknown command: "
-        << command
+        << normalized_command
         << '\n';
     return true;
 }

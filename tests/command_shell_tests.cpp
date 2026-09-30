@@ -191,6 +191,77 @@ int main()
         return 1;
     }
 
+    std::ostringstream spaced_status_output;
+
+    handle_command(
+        "   status   ",
+        relays,
+        spaced_status_output);
+
+    if (expect_equal(
+            spaced_status_output.str(),
+            "Platform status: ready\n",
+            "status should ignore outer whitespace") == false)
+    {
+        return 1;
+    }
+
+    std::ostringstream spaced_relay_output;
+
+    handle_command(
+        "  relay    relay-1    on  ",
+        relays,
+        spaced_relay_output);
+
+    if (relay_1->is_on() == false)
+    {
+        std::cerr
+            << "FAIL: spaced relay command should switch relay on\n";
+        return 1;
+    }
+
+    if (expect_equal(
+            spaced_relay_output.str(),
+            "Relay relay-1 state: on\n",
+            "relay command should accept repeated whitespace") == false)
+    {
+        return 1;
+    }
+
+    std::ostringstream spaced_list_output;
+
+    handle_command(
+        "\t relays \t",
+        relays,
+        spaced_list_output);
+
+    if (expect_equal(
+            spaced_list_output.str(),
+            "Available relays:\n"
+            "  relay-1\n"
+            "  relay-2\n",
+            "relay list should ignore whitespace") == false)
+    {
+        return 1;
+    }
+
+    std::ostringstream path_output;
+
+    handle_command(
+        "  run   missing folder/test file.json   ",
+        relays,
+        path_output);
+
+    if (expect_equal(
+            path_output.str(),
+            "Failed to load procedure: "
+            "could not open procedure file: "
+            "missing folder/test file.json\n",
+            "run should preserve spaces inside file paths") == false)
+    {
+        return 1;
+    }
+
     std::ostringstream exit_output;
 
     if (handle_command(
