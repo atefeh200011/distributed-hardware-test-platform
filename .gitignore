@@ -13,3 +13,5 @@ reports/
 
 # Sanitizer build
 build-sanitized/
+
+build-ci-*/
