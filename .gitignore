@@ -10,3 +10,6 @@ cmake-build-*/
 
 # Generated test reports
 reports/
+
+# Sanitizer build
+build-sanitized/

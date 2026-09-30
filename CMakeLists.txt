@@ -1,56 +1,147 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(hardware_test_platform VERSION 0.1.0 LANGUAGES CXX)
+project(
+    hardware_test_platform
+    VERSION 0.1.0
+    LANGUAGES CXX
+)
+
+option(
+    HWTEST_ENABLE_SANITIZERS
+    "Enable AddressSanitizer and UndefinedBehaviorSanitizer"
+    OFF
+)
+
 find_package(nlohmann_json 3.11 REQUIRED)
 find_package(Threads REQUIRED)
 
+add_library(hwtest_project_options INTERFACE)
+
+target_compile_features(
+    hwtest_project_options
+    INTERFACE cxx_std_20
+)
+
+target_include_directories(
+    hwtest_project_options
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+if(MSVC)
+    target_compile_options(
+        hwtest_project_options
+        INTERFACE
+            /W4
+            /permissive-
+    )
+else()
+    target_compile_options(
+        hwtest_project_options
+        INTERFACE
+            -Wall
+            -Wextra
+            -Wpedantic
+    )
+endif()
+
+if(HWTEST_ENABLE_SANITIZERS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(
+            hwtest_project_options
+            INTERFACE
+                -fsanitize=address,undefined
+                -fno-omit-frame-pointer
+        )
+
+        target_link_options(
+            hwtest_project_options
+            INTERFACE
+                -fsanitize=address,undefined
+                -fno-omit-frame-pointer
+        )
+    else()
+        message(
+            FATAL_ERROR
+            "HWTEST_ENABLE_SANITIZERS requires GCC or Clang"
+        )
+    endif()
+endif()
+
+enable_testing()
+
 add_executable(hwtest
     src/command_shell.cpp
+    src/device_configuration_json.cpp
+    src/device_factory.cpp
     src/main.cpp
+    src/relay_registry.cpp
     src/simulated_relay.cpp
     src/test_executor.cpp
     src/test_procedure_json.cpp
     src/test_report_json.cpp
-    src/relay_registry.cpp
-    src/device_configuration_json.cpp
-    src/device_factory.cpp
-    src/device_configuration_json.cpp
-    src/device_factory.cpp
-)
-
-target_compile_features(hwtest PRIVATE cxx_std_20)
-
-
-target_compile_options(hwtest PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
 )
 
 target_link_libraries(
     hwtest
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
 )
 
-enable_testing()
+add_executable(hwtest_server
+    src/command_shell.cpp
+    src/device_configuration_json.cpp
+    src/device_factory.cpp
+    src/logger.cpp
+    src/network_framing.cpp
+    src/network_protocol_json.cpp
+    src/relay_registry.cpp
+    src/simulated_relay.cpp
+    src/tcp_server_main.cpp
+    src/tcp_transport.cpp
+    src/test_executor.cpp
+    src/test_procedure_json.cpp
+    src/test_report_json.cpp
+)
+
+target_link_libraries(
+    hwtest_server
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
+        Threads::Threads
+)
+
+add_executable(hwtest_client
+    src/network_framing.cpp
+    src/network_protocol_json.cpp
+    src/tcp_client_main.cpp
+    src/tcp_transport.cpp
+)
+
+target_link_libraries(
+    hwtest_client
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
+)
 
 add_executable(command_shell_tests
     tests/command_shell_tests.cpp
     src/command_shell.cpp
+    src/relay_registry.cpp
     src/simulated_relay.cpp
     src/test_executor.cpp
     src/test_procedure_json.cpp
     src/test_report_json.cpp
-    src/relay_registry.cpp
 )
-
-target_compile_features(command_shell_tests PRIVATE cxx_std_20)
-
-target_include_directories(command_shell_tests PRIVATE src)
 
 target_link_libraries(
     command_shell_tests
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
 )
 
 add_test(
@@ -63,9 +154,10 @@ add_executable(simulated_relay_tests
     src/simulated_relay.cpp
 )
 
-target_compile_features(simulated_relay_tests PRIVATE cxx_std_20)
-
-target_include_directories(simulated_relay_tests PRIVATE src)
+target_link_libraries(
+    simulated_relay_tests
+    PRIVATE hwtest_project_options
+)
 
 add_test(
     NAME simulated_relay
@@ -76,15 +168,10 @@ add_executable(test_procedure_tests
     tests/test_procedure_tests.cpp
 )
 
-target_compile_features(test_procedure_tests PRIVATE cxx_std_20)
-
-target_compile_options(test_procedure_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
+target_link_libraries(
+    test_procedure_tests
+    PRIVATE hwtest_project_options
 )
-
-target_include_directories(test_procedure_tests PRIVATE src)
 
 add_test(
     NAME test_procedure_model
@@ -93,48 +180,31 @@ add_test(
 
 add_executable(test_executor_tests
     tests/test_executor_tests.cpp
+    src/relay_registry.cpp
     src/simulated_relay.cpp
     src/test_executor.cpp
-    src/relay_registry.cpp
 )
 
-target_compile_features(test_executor_tests PRIVATE cxx_std_20)
-
-target_compile_options(test_executor_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
+target_link_libraries(
+    test_executor_tests
+    PRIVATE hwtest_project_options
 )
-
-target_include_directories(test_executor_tests PRIVATE src)
 
 add_test(
     NAME test_executor
     COMMAND test_executor_tests
 )
+
 add_executable(test_executor_registry_tests
     tests/test_executor_registry_tests.cpp
-    src/test_executor.cpp
     src/relay_registry.cpp
     src/simulated_relay.cpp
+    src/test_executor.cpp
 )
 
-target_compile_features(
+target_link_libraries(
     test_executor_registry_tests
-    PRIVATE cxx_std_20
-)
-
-target_compile_options(
-    test_executor_registry_tests
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
-
-target_include_directories(
-    test_executor_registry_tests
-    PRIVATE src
+    PRIVATE hwtest_project_options
 )
 
 add_test(
@@ -147,51 +217,28 @@ add_executable(test_procedure_json_tests
     src/test_procedure_json.cpp
 )
 
-target_compile_features(test_procedure_json_tests PRIVATE cxx_std_20)
-
-target_compile_options(test_procedure_json_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(test_procedure_json_tests PRIVATE src)
-
 target_link_libraries(
     test_procedure_json_tests
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
 )
 
 add_test(
     NAME test_procedure_json
     COMMAND test_procedure_json_tests
 )
+
 add_executable(test_procedure_device_tests
     tests/test_procedure_device_tests.cpp
     src/test_procedure_json.cpp
 )
 
-target_compile_features(
-    test_procedure_device_tests
-    PRIVATE cxx_std_20
-)
-
-target_compile_options(
-    test_procedure_device_tests
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
-
-target_include_directories(
-    test_procedure_device_tests
-    PRIVATE src
-)
-
 target_link_libraries(
     test_procedure_device_tests
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
 )
 
 add_test(
@@ -205,22 +252,9 @@ add_executable(relay_registry_tests
     src/simulated_relay.cpp
 )
 
-target_compile_features(
+target_link_libraries(
     relay_registry_tests
-    PRIVATE cxx_std_20
-)
-
-target_compile_options(
-    relay_registry_tests
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
-
-target_include_directories(
-    relay_registry_tests
-    PRIVATE src
+    PRIVATE hwtest_project_options
 )
 
 add_test(
@@ -233,19 +267,11 @@ add_executable(network_protocol_tests
     src/network_protocol_json.cpp
 )
 
-target_compile_features(network_protocol_tests PRIVATE cxx_std_20)
-
-target_compile_options(network_protocol_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(network_protocol_tests PRIVATE src)
-
 target_link_libraries(
     network_protocol_tests
-    PRIVATE nlohmann_json::nlohmann_json
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
 )
 
 add_test(
@@ -258,74 +284,128 @@ add_executable(network_framing_tests
     src/network_framing.cpp
 )
 
-target_compile_features(network_framing_tests PRIVATE cxx_std_20)
-
-target_compile_options(network_framing_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
+target_link_libraries(
+    network_framing_tests
+    PRIVATE hwtest_project_options
 )
-
-target_include_directories(network_framing_tests PRIVATE src)
 
 add_test(
     NAME network_framing
     COMMAND network_framing_tests
 )
-add_executable(hwtest_server
-    src/tcp_server_main.cpp
-    src/command_shell.cpp
+
+add_executable(tcp_transport_tests
+    tests/tcp_transport_tests.cpp
     src/network_framing.cpp
-    src/network_protocol_json.cpp
-    src/simulated_relay.cpp
-    src/test_executor.cpp
-    src/test_procedure_json.cpp
     src/tcp_transport.cpp
-    src/logger.cpp
-    src/test_report_json.cpp
-    src/relay_registry.cpp
-    src/device_configuration_json.cpp
-    src/device_factory.cpp
 )
-
-target_compile_features(hwtest_server PRIVATE cxx_std_20)
-
-target_compile_options(hwtest_server PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(hwtest_server PRIVATE src)
 
 target_link_libraries(
-    hwtest_server
+    tcp_transport_tests
+    PRIVATE hwtest_project_options
+)
+
+add_test(
+    NAME tcp_transport
+    COMMAND tcp_transport_tests
+)
+
+add_executable(device_configuration_tests
+    tests/device_configuration_tests.cpp
+)
+
+target_link_libraries(
+    device_configuration_tests
+    PRIVATE hwtest_project_options
+)
+
+add_test(
+    NAME device_configuration
+    COMMAND device_configuration_tests
+)
+
+add_executable(test_result_tests
+    tests/test_result_tests.cpp
+)
+
+target_link_libraries(
+    test_result_tests
+    PRIVATE hwtest_project_options
+)
+
+add_test(
+    NAME test_result_model
+    COMMAND test_result_tests
+)
+
+add_executable(logger_tests
+    tests/logger_tests.cpp
+    src/logger.cpp
+)
+
+target_link_libraries(
+    logger_tests
     PRIVATE
-        nlohmann_json::nlohmann_json
+        hwtest_project_options
         Threads::Threads
 )
 
-add_executable(hwtest_client
-    src/tcp_client_main.cpp
-    src/network_framing.cpp
-    src/network_protocol_json.cpp
-    src/tcp_transport.cpp
+add_test(
+    NAME logger
+    COMMAND logger_tests
 )
 
-target_compile_features(hwtest_client PRIVATE cxx_std_20)
-
-target_compile_options(hwtest_client PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
+add_executable(test_report_json_tests
+    tests/test_report_json_tests.cpp
+    src/test_report_json.cpp
 )
-
-target_include_directories(hwtest_client PRIVATE src)
 
 target_link_libraries(
-    hwtest_client
-    PRIVATE nlohmann_json::nlohmann_json
+    test_report_json_tests
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
 )
+
+add_test(
+    NAME test_report_json
+    COMMAND test_report_json_tests
+)
+
+add_executable(device_configuration_json_tests
+    tests/device_configuration_json_tests.cpp
+    src/device_configuration_json.cpp
+)
+
+target_link_libraries(
+    device_configuration_json_tests
+    PRIVATE
+        hwtest_project_options
+        nlohmann_json::nlohmann_json
+)
+
+add_test(
+    NAME device_configuration_json
+    COMMAND device_configuration_json_tests
+)
+
+add_executable(device_factory_tests
+    tests/device_factory_tests.cpp
+    src/device_factory.cpp
+    src/relay_registry.cpp
+    src/simulated_relay.cpp
+)
+
+target_link_libraries(
+    device_factory_tests
+    PRIVATE hwtest_project_options
+)
+
+add_test(
+    NAME device_factory
+    COMMAND device_factory_tests
+)
+
 add_test(
     NAME tcp_client_server_integration
     COMMAND bash
@@ -343,6 +423,7 @@ set_tests_properties(
         TIMEOUT 10
         RUN_SERIAL TRUE
 )
+
 add_test(
     NAME configuration_startup
     COMMAND bash
@@ -357,178 +438,4 @@ set_tests_properties(
     PROPERTIES
         TIMEOUT 10
         RUN_SERIAL TRUE
-)
-add_executable(tcp_transport_tests
-    tests/tcp_transport_tests.cpp
-    src/tcp_transport.cpp
-    src/network_framing.cpp
-)
-
-target_compile_features(tcp_transport_tests PRIVATE cxx_std_20)
-
-target_compile_options(tcp_transport_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(tcp_transport_tests PRIVATE src)
-
-add_test(
-    NAME tcp_transport
-    COMMAND tcp_transport_tests
-)
-add_executable(device_configuration_tests
-    tests/device_configuration_tests.cpp
-)
-
-target_compile_features(
-    device_configuration_tests
-    PRIVATE cxx_std_20
-)
-
-target_compile_options(
-    device_configuration_tests
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
-
-target_include_directories(
-    device_configuration_tests
-    PRIVATE src
-)
-
-add_test(
-    NAME device_configuration
-    COMMAND device_configuration_tests
-)
-
-add_executable(test_result_tests
-    tests/test_result_tests.cpp
-)
-
-target_compile_features(test_result_tests PRIVATE cxx_std_20)
-
-target_compile_options(test_result_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(test_result_tests PRIVATE src)
-
-add_test(
-    NAME test_result_model
-    COMMAND test_result_tests
-)
-add_executable(logger_tests
-    tests/logger_tests.cpp
-    src/logger.cpp
-)
-
-target_compile_features(logger_tests PRIVATE cxx_std_20)
-
-target_compile_options(logger_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(logger_tests PRIVATE src)
-
-target_link_libraries(
-    logger_tests
-    PRIVATE Threads::Threads
-)
-
-add_test(
-    NAME logger
-    COMMAND logger_tests
-)
-add_executable(test_report_json_tests
-    tests/test_report_json_tests.cpp
-    src/test_report_json.cpp
-)
-
-target_compile_features(test_report_json_tests PRIVATE cxx_std_20)
-
-target_compile_options(test_report_json_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
-
-target_include_directories(test_report_json_tests PRIVATE src)
-
-target_link_libraries(
-    test_report_json_tests
-    PRIVATE nlohmann_json::nlohmann_json
-)
-
-add_test(
-    NAME test_report_json
-    COMMAND test_report_json_tests
-)
-add_executable(device_configuration_json_tests
-    tests/device_configuration_json_tests.cpp
-    src/device_configuration_json.cpp
-)
-
-target_compile_features(
-    device_configuration_json_tests
-    PRIVATE cxx_std_20
-)
-
-target_compile_options(
-    device_configuration_json_tests
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
-
-target_include_directories(
-    device_configuration_json_tests
-    PRIVATE src
-)
-
-target_link_libraries(
-    device_configuration_json_tests
-    PRIVATE nlohmann_json::nlohmann_json
-)
-
-add_test(
-    NAME device_configuration_json
-    COMMAND device_configuration_json_tests
-)
-add_executable(device_factory_tests
-    tests/device_factory_tests.cpp
-    src/device_factory.cpp
-    src/relay_registry.cpp
-    src/simulated_relay.cpp
-)
-
-target_compile_features(
-    device_factory_tests
-    PRIVATE cxx_std_20
-)
-
-target_compile_options(
-    device_factory_tests
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
-
-target_include_directories(
-    device_factory_tests
-    PRIVATE src
-)
-
-add_test(
-    NAME device_factory
-    COMMAND device_factory_tests
 )
