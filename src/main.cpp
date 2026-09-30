@@ -6,6 +6,7 @@
 #include "device_configuration_json.h"
 #include "device_factory.h"
 #include "relay_registry.h"
+#include "version.h"
 
 int main(int argc, char* argv[])
 {
@@ -51,7 +52,9 @@ int main(int argc, char* argv[])
     }
 
     std::cout
-        << "Hardware Test Platform version 0.1.0\n";
+        << "Hardware Test Platform version "
+        << hwtest_version
+        << '\n';
     std::cout
         << "Loaded "
         << relays.size()

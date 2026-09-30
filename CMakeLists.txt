@@ -2,8 +2,13 @@ cmake_minimum_required(VERSION 3.20)
 
 project(
     hardware_test_platform
-    VERSION 0.1.0
+    VERSION 1.0.0
     LANGUAGES CXX
+)
+configure_file(
+    src/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
+    @ONLY
 )
 
 option(
@@ -26,6 +31,7 @@ target_include_directories(
     hwtest_project_options
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 if(MSVC)
