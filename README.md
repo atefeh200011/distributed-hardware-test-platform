@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/atefeh200011/distributed-hardware-test-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/atefeh200011/distributed-hardware-test-platform/actions/workflows/ci.yml)
 
-A modern C++20 platform for deterministic hardware testing, configuration-driven
-device control, network communication, automated test execution, structured
-logging, and machine-readable test reports.
+A modern C++20 platform for deterministic hardware testing,
+configuration-driven device control, network communication, automated test
+execution, structured logging, and machine-readable test reports.
 
 ## Project status
 
@@ -25,16 +25,20 @@ verification, and continuous integration.
 - Independent state for multiple relay devices
 - Interactive command-line device control
 - JSON-defined, device-aware test procedures
-- Test execution with retries and timeout detection
+- Step retries and timeout detection
 - Cooperative test cancellation
 - Structured procedure and step results
+- Machine-readable JSON test reports
 - TCP client/server communication
 - Concurrent TCP client handling
-- Persistent device state across connections
-- JSON network request and response messages
-- Thread-safe structured server logging
-- Machine-readable JSON test reports
-- Automated unit and integration tests
+- Persistent device state across TCP connections
+- JSON request and response messages
+- Newline-delimited network framing
+- Thread-safe persistent server logging
+- Unit, integration, concurrency, and startup-validation tests
+- AddressSanitizer and UndefinedBehaviorSanitizer support
+- GitHub Actions continuous integration
+- MIT open-source license
 
 ## Version 1.0.0 highlights
 
@@ -45,22 +49,32 @@ verification, and continuous integration.
 - Retries, timeout detection, and cooperative cancellation
 - Structured execution results and JSON report generation
 - Thread-safe persistent server logging
-- Unit, integration, concurrency, and startup-validation testing
-- Optional AddressSanitizer and UndefinedBehaviorSanitizer builds
+- Automated unit and integration testing
+- Sanitized Debug builds
 - GitHub Actions continuous integration
-- MIT open-source license
+- MIT License
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 
 ## Motivation
 
-I am building this project to develop practical skills in modern C++, hardware
-abstraction, configuration management, networking, concurrency, automated
-testing, and maintainable software architecture.
+I built this project to develop practical skills in:
+
+- Modern C++20
+- Hardware abstraction
+- Configuration management
+- JSON parsing and validation
+- TCP networking
+- Concurrent server design
+- Automated hardware testing
+- Reliable test execution
+- Structured logging and reporting
+- CMake and continuous integration
+- Maintainable software architecture
 
 ## Requirements
 
-- Ubuntu on WSL2
+- Ubuntu or Ubuntu on WSL2
 - GCC 13 or newer
 - CMake 3.20 or newer
 - Ninja
@@ -68,39 +82,39 @@ testing, and maintainable software architecture.
 - nlohmann/json 3.11 or newer
 - POSIX sockets and threads
 
-Install the required Ubuntu packages with:
+Install the required Ubuntu packages:
 
-```bash
+~~~bash
 sudo apt update
 sudo apt install build-essential cmake ninja-build git nlohmann-json3-dev
-```
+~~~
 
 ## Build
 
 Configure the project with CMake and Ninja:
 
-```bash
+~~~bash
 cmake -S . -B build -G Ninja
-```
+~~~
 
 Compile the applications and tests:
 
-```bash
+~~~bash
 cmake --build build
-```
+~~~
 
 For a clean rebuild:
 
-```bash
+~~~bash
 cmake --build build --clean-first
-```
+~~~
 
 ### Sanitized build
 
 Configure a separate Debug build with AddressSanitizer and
 UndefinedBehaviorSanitizer enabled:
 
-```bash
+~~~bash
 cmake \
     -S . \
     -B build-sanitized \
@@ -110,7 +124,17 @@ cmake \
 
 cmake --build build-sanitized
 ctest --test-dir build-sanitized --output-on-failure
-```
+~~~
+
+## Built applications
+
+The build produces three primary executables:
+
+| Executable | Purpose |
+| --- | --- |
+| `hwtest` | Interactive local hardware-control application |
+| `hwtest_server` | Concurrent TCP hardware-control server |
+| `hwtest_client` | Command-line TCP client |
 
 ## Device configuration
 
@@ -118,13 +142,13 @@ Devices are created at startup from a JSON configuration file.
 
 The default configuration is:
 
-```text
+~~~text
 config/devices.json
-```
+~~~
 
-Example:
+Example configuration:
 
-```json
+~~~json
 {
     "devices": [
         {
@@ -139,59 +163,54 @@ Example:
         }
     ]
 }
-```
+~~~
 
-Each device contains:
+Each device requires:
 
-| Property | Required | Description |
-| --- | --- | --- |
-| `name` | Yes | Unique device name |
-| `type` | Yes | Device implementation type |
-| `initial_state` | No | Initial state: `on` or `off`; defaults to `off` |
-
-Currently supported device types:
-
-| Type | Description |
+| Field | Description |
 | --- | --- |
-| `simulated_relay` | Deterministic in-memory relay implementation |
+| `name` | Unique device name used by commands and procedures |
+| `type` | Device implementation type |
+| `initial_state` | Initial relay state: `on` or `off` |
 
-Configuration validation rejects:
+The current supported device type is:
 
-- Missing or non-array `devices`
-- Empty device lists
-- Missing, empty, or invalid names
+~~~text
+simulated_relay
+~~~
+
+Configuration validation rejects invalid input such as:
+
+- Missing required fields
 - Duplicate device names
-- Missing or invalid device types
 - Unsupported device types
-- Invalid initial-state values
-- Incorrect JSON value types
-- Malformed JSON
-
-The registry is built transactionally. If any device cannot be created, the
-destination registry is not partially populated.
+- Invalid initial states
+- Empty device names
+- Invalid JSON
 
 ## Local command-line application
 
-Start with the default configuration:
+Start the local application with the default configuration:
 
-```bash
+~~~bash
 ./build/hwtest
-```
+~~~
 
-Start with an explicit configuration file:
+You may also provide a configuration file explicitly:
 
-```bash
+~~~bash
 ./build/hwtest config/devices.json
-```
+~~~
 
 Example startup:
 
-```text
-Hardware Test Platform version 0.1.0
+~~~text
+Hardware Test Platform version 1.0.0
 Loaded 2 configured devices from config/devices.json
-```
+hwtest>
+~~~
 
-Available commands:
+### Available commands
 
 | Command | Description |
 | --- | --- |
@@ -200,164 +219,134 @@ Available commands:
 | `relays` | List registered relays |
 | `relay <name> on` | Switch a named relay on |
 | `relay <name> off` | Switch a named relay off |
-| `relay <name> status` | Show a named relay state |
-| `run <file>` | Load and execute a JSON test procedure |
+| `relay <name> status` | Show a named relay’s state |
+| `run <file>` | Run a JSON test procedure |
 | `exit` | Exit the application |
 
-Example:
+Command whitespace is normalized, so leading, trailing, and repeated spaces are
+accepted.
 
-```text
+Example session:
+
+~~~text
+Hardware Test Platform version 1.0.0
+Loaded 2 configured devices from config/devices.json
 hwtest> relays
 Available relays:
   relay-1
   relay-2
+hwtest> relay relay-1 on
+Relay relay-1 state: on
 hwtest> relay relay-1 status
-Relay relay-1 state: off
+Relay relay-1 state: on
 hwtest> relay relay-2 status
 Relay relay-2 state: on
+hwtest> relay relay-1 off
+Relay relay-1 state: off
 hwtest> exit
 Shutting down the hardware test platform project.
-```
-
-Invalid configuration prevents startup:
-
-```bash
-./build/hwtest config/missing.json
-```
-
-Example error:
-
-```text
-Failed to load device configuration: could not open device configuration file: config/missing.json
-```
+~~~
 
 ## Device registry and factory
 
-The configuration pipeline is:
+The device factory creates configured relay implementations from validated JSON
+configuration.
 
-```text
-devices.json
-     |
-     v
-JSON configuration parser
-     |
-     v
-PlatformConfiguration
-     |
-     v
-Device factory
-     |
-     v
-RelayRegistry
-     |
-     v
-Command shell and test executor
-```
+The relay registry:
 
-The `RelayRegistry` owns relay implementations and provides:
+- Owns the configured relay instances
+- Maps unique names to relay objects
+- Supports deterministic name lookup
+- Allows commands and procedures to select devices
+- Preserves independent state for each device
 
-- Registration by unique name
-- Lookup by name
-- Duplicate-name rejection
-- Missing-device detection
-- Sorted device listings
-- Access through the `IRelay` abstraction
+The command shell and test executor depend on the `IRelay` interface rather
+than directly depending on `SimulatedRelay`.
 
-The device factory converts validated `DeviceConfiguration` objects into
-initialized hardware implementations.
-
-Future physical relay drivers can be added to the factory without changing the
-command shell or test executor.
-
-## TCP client and server
-
-Start the server with the default configuration:
-
-```bash
-./build/hwtest_server
-```
-
-Start it with an explicit configuration:
-
-```bash
-./build/hwtest_server config/devices.json
-```
-
-The server listens on:
-
-```text
-127.0.0.1:5050
-```
-
-List configured devices from another terminal:
-
-```bash
-./build/hwtest_client relays
-```
-
-Control named relays remotely:
-
-```bash
-./build/hwtest_client relay relay-1 on
-./build/hwtest_client relay relay-1 status
-./build/hwtest_client relay relay-2 status
-./build/hwtest_client relay relay-1 off
-```
-
-Run procedures remotely:
-
-```bash
-./build/hwtest_client run procedures/relay_smoke_test.json
-./build/hwtest_client run procedures/multi_relay_test.json
-```
-
-Stop the server:
-
-```bash
-./build/hwtest_client exit
-```
-
-The server preserves device state between connections and handles multiple
-clients concurrently.
-
-## Network protocol
-
-The client and server exchange newline-delimited JSON messages over TCP.
-
-Example request:
-
-```json
-{
-    "request_id": "client-request-001",
-    "command": "relay relay-1 status"
-}
-```
-
-Example response:
-
-```json
-{
-    "request_id": "client-request-001",
-    "success": true,
-    "output": "Relay relay-1 state: off\n"
-}
-```
+Future physical relay implementations can implement the same interface without
+requiring changes to the command-processing or procedure-execution logic.
 
 ## JSON test procedures
 
-Test procedures contain ordered device actions and expectations.
+Test procedures contain an ordered sequence of hardware actions and
+expectations.
 
-Each step may contain:
+Run the single-relay smoke test:
 
-| Property | Required | Description |
-| --- | --- | --- |
-| `name` | Yes | Human-readable step name |
-| `action` | Yes | Hardware action or expectation |
-| `device` | No | Registered relay name; defaults to `relay-1` |
-| `retries` | No | Additional attempts after the first failure |
-| `timeout_ms` | No | Maximum permitted duration in milliseconds |
+~~~text
+run procedures/relay_smoke_test.json
+~~~
 
-Supported actions:
+Run the multi-relay test:
+
+~~~text
+run procedures/multi_relay_test.json
+~~~
+
+Example procedure:
+
+~~~json
+{
+    "name": "Relay smoke test",
+    "steps": [
+        {
+            "name": "Switch relay on",
+            "device": "relay-1",
+            "action": "relay_on",
+            "retries": 0,
+            "timeout_ms": 1000
+        },
+        {
+            "name": "Verify relay on",
+            "device": "relay-1",
+            "action": "expect_relay_on",
+            "retries": 2,
+            "timeout_ms": 500
+        },
+        {
+            "name": "Switch relay off",
+            "device": "relay-1",
+            "action": "relay_off",
+            "retries": 0,
+            "timeout_ms": 1000
+        },
+        {
+            "name": "Verify relay off",
+            "device": "relay-1",
+            "action": "expect_relay_off",
+            "retries": 0,
+            "timeout_ms": 1000
+        }
+    ]
+}
+~~~
+
+### Procedure fields
+
+A procedure contains:
+
+| Field | Description |
+| --- | --- |
+| `name` | Human-readable procedure name |
+| `steps` | Ordered collection of test steps |
+
+A step contains:
+
+| Field | Description |
+| --- | --- |
+| `name` | Human-readable step name |
+| `device` | Target registered device |
+| `action` | Hardware action or expectation |
+| `retries` | Additional attempts after the first failure |
+| `timeout_ms` | Maximum permitted step duration in milliseconds |
+
+If `device` is omitted, it defaults to `relay-1`.
+
+If `retries` is omitted, it defaults to `0`.
+
+If `timeout_ms` is omitted, it defaults to `1000`.
+
+### Supported actions
 
 | Action | Behavior |
 | --- | --- |
@@ -366,218 +355,236 @@ Supported actions:
 | `expect_relay_on` | Fail if the selected relay is off |
 | `expect_relay_off` | Fail if the selected relay is on |
 
-Example step:
-
-```json
-{
-    "name": "Verify second relay on",
-    "device": "relay-2",
-    "action": "expect_relay_on",
-    "retries": 2,
-    "timeout_ms": 500
-}
-```
-
-Run the single-relay procedure:
-
-```text
-run procedures/relay_smoke_test.json
-```
-
-Run the multi-relay procedure:
-
-```text
-run procedures/multi_relay_test.json
-```
-
-Before each step, the executor finds the configured device in the registry. A
-missing device fails with a structured diagnostic:
-
-```text
-Relay not found: missing
-```
-
 ## Reliable test execution
 
-The test executor supports:
+The executor provides:
 
+- Ordered step execution
 - Named-device resolution
-- Missing-device detection
 - Retry handling
-- Step timeout detection
+- Timeout detection
 - Cooperative cancellation
-- Completed-step tracking
+- Completed-step accounting
 - Failed-step identification
-- Procedure duration
-- Per-step duration
-- Attempt counts
-- Diagnostic result messages
+- Per-step attempt counts
+- Per-step execution durations
+- Overall procedure duration
+- Structured pass, failure, and cancellation results
 
-A failed step is not counted as completed. A missing device fails before the
-action is attempted and records zero attempts.
+A retry count represents additional attempts. For example:
 
-## Structured logging
+~~~json
+"retries": 2
+~~~
 
-The TCP server writes timestamped log messages to:
-
-```text
-logs/hwtest-server.log
-```
-
-Example:
-
-```text
-2026-09-29T10:59:55Z [INFO] Executing command: relay relay-1 status
-```
-
-Supported levels:
-
-- `INFO`
-- `WARNING`
-- `ERROR`
-
-The logger is thread-safe, allowing concurrent client threads to write complete
-log entries.
-
-Generated logs are not committed to Git.
+allows up to three total attempts.
 
 ## JSON test reports
 
-Every procedure execution automatically creates a JSON report:
+Every executed procedure produces a JSON report in the `reports/` directory.
 
-```text
-Report written: reports/multi_relay_test-<timestamp>.json
-```
+Example shell output:
 
-Reports contain:
+~~~text
+Running procedure: Relay smoke test
+Step: Switch relay on
+Step: Verify relay on
+Step: Switch relay off
+Step: Verify relay off
+Result: PASS
+Report written: reports/relay_smoke_test-1790264830684.json
+~~~
 
-- Procedure name
-- Overall `PASS`, `FAIL`, or `CANCELLED` status
-- Completed-step count
-- Total duration
-- Failed-step name
-- Overall diagnostic message
-- Per-step status
-- Attempt count
-- Step duration
-- Per-step diagnostic message
+Example report:
 
-Example:
-
-```json
+~~~json
 {
-    "completed_steps": 9,
+    "completed_steps": 4,
     "duration_ms": 0,
     "failed_step": null,
     "message": "All steps passed",
-    "procedure": "Multi-relay independence test",
+    "procedure": "Relay smoke test",
     "status": "PASS",
     "steps": [
         {
             "attempts": 1,
             "duration_ms": 0,
             "message": "Step passed",
-            "name": "Switch first relay on",
+            "name": "Switch relay on",
             "status": "PASS"
         }
     ]
 }
-```
+~~~
 
-Generated reports are stored in `reports/` and are not committed to Git.
+Report files are runtime artifacts and are excluded from Git.
 
-A duration of `0` milliseconds is valid when an operation completes faster than
-the clock's millisecond resolution.
+## Structured logging
+
+The TCP server uses a thread-safe logger.
+
+Log records include:
+
+- UTC timestamp
+- Log level
+- Message
+
+Example:
+
+~~~text
+2026-09-24T10:59:55Z [INFO] Hardware test server started
+2026-09-24T10:59:55Z [INFO] Executing command: relay relay-1 status
+2026-09-24T10:59:55Z [INFO] Hardware test server stopped
+~~~
+
+Log files are runtime artifacts and are excluded from Git.
+
+## TCP client and server
+
+Start the server with the default device configuration:
+
+~~~bash
+./build/hwtest_server
+~~~
+
+Or provide a configuration file:
+
+~~~bash
+./build/hwtest_server config/devices.json
+~~~
+
+The server listens on:
+
+~~~text
+127.0.0.1:5050
+~~~
+
+From another terminal, send commands with the client:
+
+~~~bash
+./build/hwtest_client relays
+./build/hwtest_client relay relay-1 on
+./build/hwtest_client relay relay-1 status
+./build/hwtest_client run procedures/multi_relay_test.json
+./build/hwtest_client exit
+~~~
+
+The server:
+
+- Loads configured devices at startup
+- Preserves device state across connections
+- Accepts concurrent clients
+- Executes commands through the shared command shell
+- Returns structured JSON responses
+- Stops when it receives the `exit` command
+
+## Network protocol
+
+The client and server exchange newline-delimited JSON messages.
+
+Example request:
+
+~~~json
+{
+    "request_id": "client-request-001",
+    "command": "relay relay-1 status"
+}
+~~~
+
+Example response:
+
+~~~json
+{
+    "request_id": "client-request-001",
+    "success": true,
+    "output": "Relay relay-1 state: off\n"
+}
+~~~
+
+Each JSON message is followed by a newline delimiter so the receiver can detect
+the end of the message over the TCP byte stream.
 
 ## Test
 
-Run all automated tests:
+Run all tests:
 
-```bash
+~~~bash
 ctest --test-dir build --output-on-failure
-```
+~~~
 
 The test suite covers:
 
-- Command processing
-- Relay state transitions
-- Relay registration and lookup
-- Configuration data models
-- JSON configuration parsing
-- Configuration validation
-- Device factory behavior
-- Configurable initial states
-- Transactional registry creation
-- Local and server startup failure handling
-- Device-aware procedure parsing
-- Multi-relay procedure execution
-- Retries, timeouts, and cancellation
-- Structured execution results
-- JSON report generation
-- Thread-safe logging
-- Network serialization and framing
-- TCP transport
-- Concurrent clients
-- Remote configured-device control
+- Command parsing and whitespace normalization
+- Simulated relay behavior
+- Test-procedure models
+- JSON procedure parsing and validation
+- Named-device parsing
+- Retry, timeout, and cancellation behavior
+- Multi-device execution
+- Relay registry behavior
+- Network request and response serialization
+- Network framing
+- Shared TCP transport
+- Concurrent TCP client/server integration
 - Remote procedure execution
+- Device configuration models
+- JSON device-configuration validation
+- Device factory behavior
+- Invalid startup configuration
+- Structured result models
+- Thread-safe logging
+- JSON test-report generation
+
+The current release contains 19 automated tests.
+
+## Continuous integration
+
+GitHub Actions runs the complete build and test suite for pushes to `main` and
+for pull requests.
+
+The CI matrix verifies:
+
+- A normal Debug build
+- A Debug build with AddressSanitizer and UndefinedBehaviorSanitizer enabled
+
+The workflow is defined in:
+
+~~~text
+.github/workflows/ci.yml
+~~~
 
 ## Architecture
 
-```text
+### Local execution
+
+~~~text
 JSON device configuration
           |
           v
-Configuration parser and validation
-          |
-          v
-PlatformConfiguration
+Device configuration parser
           |
           v
 Device factory
           |
           v
-RelayRegistry
-     |             |
-     v             v
- relay-1         relay-2
-     |             |
-     v             v
-IRelay          IRelay
-     |             |
-     v             v
-SimulatedRelay  SimulatedRelay
-```
-
-Procedure execution:
-
-```text
-JSON procedure
-      |
-      v
-Procedure parser
-      |
-      v
-TestProcedure
-      |
-      v
+Configured RelayRegistry
+          |
+          v
+Command shell
+          |
+          v
 Test executor
-      |
-      v
-RelayRegistry
-      |
-      v
-Selected device
-      |
-      v
-TestResult
-      |
-      v
+          |
+          v
+Structured TestResult
+          |
+          v
 JSON report
-```
+~~~
 
-Distributed command execution:
+### Distributed command execution
 
-```text
+~~~text
 TCP client
     |
     v
@@ -594,8 +601,11 @@ Command shell
     |
     v
 Configured RelayRegistry
-```
+~~~
 
+## Project structure
+
+~~~text
 .
 ├── .github/
 │   └── workflows/
@@ -667,12 +677,8 @@ Configured RelayRegistry
 ├── CMakeLists.txt
 ├── LICENSE
 └── README.md
+~~~
 
-## License
-
-This project is available under the [MIT License](LICENSE).
-
-Copyright (c) 2026 Atefeh Mohammadpour.
 ## Milestones
 
 - Milestone 1: Project foundation and interactive command shell
@@ -684,3 +690,9 @@ Copyright (c) 2026 Atefeh Mohammadpour.
 - Milestone 7: Named multi-device registration, control, and execution
 - Milestone 8: Configuration-driven device creation and startup
 - Milestone 9: Production polish, CI, documentation, and `v1.0.0` release
+
+## License
+
+This project is available under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Atefeh Mohammadpour.
